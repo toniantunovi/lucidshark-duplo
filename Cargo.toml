@@ -1,0 +1,38 @@
+[package]
+name = "lucidshark-duplo"
+version = "0.1.0"
+edition = "2021"
+description = "Code duplication detection tool"
+license = "Apache-2.0"
+repository = "https://github.com/lucidshark-code/lucidshark-duplo"
+keywords = ["code-analysis", "duplication", "static-analysis"]
+categories = ["development-tools", "command-line-utilities"]
+
+[dependencies]
+# CLI argument parsing
+clap = { version = "4.4", features = ["derive"] }
+
+# Parallel processing
+rayon = "1.10"
+
+# Efficient bit vector for comparison matrix
+bitvec = "1.0"
+
+# Serialization for JSON output
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Error handling
+thiserror = "1.0"
+
+# Number of CPUs for default thread count
+num_cpus = "1.16"
+
+[dev-dependencies]
+# Testing utilities
+tempfile = "3.10"
+pretty_assertions = "1.4"
+
+[[bin]]
+name = "lucidshark-duplo"
+path = "src/main.rs"
