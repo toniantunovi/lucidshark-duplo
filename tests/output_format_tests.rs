@@ -10,8 +10,7 @@ fn fixtures_dir() -> PathBuf {
 
 /// Get the path to the built binary
 fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target/debug/lucidshark-duplo")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/lucidshark-duplo")
 }
 
 /// Create a temporary file list with the given files
@@ -50,11 +49,14 @@ mod json_output {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value = serde_json::from_str(&stdout)
-            .expect("Output should be valid JSON");
+        let json: serde_json::Value =
+            serde_json::from_str(&stdout).expect("Output should be valid JSON");
 
         // Verify structure
-        assert!(json.get("duplicates").is_some(), "Should have 'duplicates' field");
+        assert!(
+            json.get("duplicates").is_some(),
+            "Should have 'duplicates' field"
+        );
         assert!(json.get("summary").is_some(), "Should have 'summary' field");
     }
 
@@ -128,10 +130,19 @@ mod xml_output {
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         // Check for XML structure
-        assert!(stdout.contains("<?xml version"), "Should have XML declaration");
+        assert!(
+            stdout.contains("<?xml version"),
+            "Should have XML declaration"
+        );
         assert!(stdout.contains("<duplo>"), "Should have duplo root element");
-        assert!(stdout.contains("</duplo>"), "Should have closing duplo element");
-        assert!(stdout.contains("<set"), "Should have set elements for duplicates");
+        assert!(
+            stdout.contains("</duplo>"),
+            "Should have closing duplo element"
+        );
+        assert!(
+            stdout.contains("<set"),
+            "Should have set elements for duplicates"
+        );
         assert!(stdout.contains("<block"), "Should have block elements");
         assert!(stdout.contains("<summary"), "Should have summary element");
     }
@@ -148,7 +159,10 @@ mod xml_output {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("LineCount="), "Should include LineCount attribute");
+        assert!(
+            stdout.contains("LineCount="),
+            "Should include LineCount attribute"
+        );
     }
 }
 
@@ -166,8 +180,14 @@ mod console_output {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("identical_a.c"), "Should show first file path");
-        assert!(stdout.contains("identical_b.c"), "Should show second file path");
+        assert!(
+            stdout.contains("identical_a.c"),
+            "Should show first file path"
+        );
+        assert!(
+            stdout.contains("identical_b.c"),
+            "Should show second file path"
+        );
     }
 
     #[test]
@@ -182,7 +202,10 @@ mod console_output {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         // Should show line ranges like (1-5)
-        assert!(stdout.contains("(") && stdout.contains(")"), "Should show line number ranges");
+        assert!(
+            stdout.contains("(") && stdout.contains(")"),
+            "Should show line number ranges"
+        );
         assert!(stdout.contains("<->"), "Should show <-> between file pairs");
     }
 
@@ -198,8 +221,14 @@ mod console_output {
 
         let stdout = String::from_utf8_lossy(&output.stdout);
         assert!(stdout.contains("Summary:"), "Should have Summary section");
-        assert!(stdout.contains("Files analyzed:"), "Should show files analyzed");
-        assert!(stdout.contains("Duplicate blocks:"), "Should show duplicate blocks");
+        assert!(
+            stdout.contains("Files analyzed:"),
+            "Should show files analyzed"
+        );
+        assert!(
+            stdout.contains("Duplicate blocks:"),
+            "Should show duplicate blocks"
+        );
     }
 
     #[test]
@@ -213,7 +242,13 @@ mod console_output {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        assert!(stdout.contains("Configuration:"), "Should have Configuration section");
-        assert!(stdout.contains("Minimum block size:"), "Should show min block size");
+        assert!(
+            stdout.contains("Configuration:"),
+            "Should have Configuration section"
+        );
+        assert!(
+            stdout.contains("Minimum block size:"),
+            "Should show min block size"
+        );
     }
 }

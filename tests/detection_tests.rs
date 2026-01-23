@@ -10,8 +10,7 @@ fn fixtures_dir() -> PathBuf {
 
 /// Get the path to the built binary
 fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target/debug/lucidshark-duplo")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/lucidshark-duplo")
 }
 
 /// Create a temporary file list with the given files
@@ -56,8 +55,13 @@ mod detection_accuracy {
         let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
-        assert!(!duplicates.is_empty(), "Should detect duplicates in identical files");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
+        assert!(
+            !duplicates.is_empty(),
+            "Should detect duplicates in identical files"
+        );
 
         // Should detect the full file as duplicate (5 lines)
         let first_dup = &duplicates[0];
@@ -70,14 +74,20 @@ mod detection_accuracy {
         let file_list = create_file_list(&["partial_a.c", "partial_b.c"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         assert!(!duplicates.is_empty(), "Should detect partial duplicates");
 
         // The shared_function has 6 lines of duplicate code
-        let total_dup_lines: u64 = duplicates.iter()
+        let total_dup_lines: u64 = duplicates
+            .iter()
             .map(|d| d["line_count"].as_u64().unwrap_or(0))
             .sum();
-        assert!(total_dup_lines >= 4, "Should detect at least 4 duplicate lines");
+        assert!(
+            total_dup_lines >= 4,
+            "Should detect at least 4 duplicate lines"
+        );
     }
 
     #[test]
@@ -86,8 +96,13 @@ mod detection_accuracy {
         let file_list = create_file_list(&["unique_a.c", "unique_b.c"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
-        assert!(duplicates.is_empty(), "Should not detect duplicates in unique files");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
+        assert!(
+            duplicates.is_empty(),
+            "Should not detect duplicates in unique files"
+        );
     }
 
     #[test]
@@ -105,8 +120,13 @@ mod detection_accuracy {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
-        assert!(duplicates.is_empty(), "Should not detect duplicates below min-lines threshold");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
+        assert!(
+            duplicates.is_empty(),
+            "Should not detect duplicates below min-lines threshold"
+        );
     }
 
     #[test]
@@ -115,9 +135,14 @@ mod detection_accuracy {
         let file_list = create_file_list(&["with_comments.c", "without_comments.c"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         // After stripping comments, these files should have duplicate content
-        assert!(!duplicates.is_empty(), "Should detect duplicates after comment stripping");
+        assert!(
+            !duplicates.is_empty(),
+            "Should detect duplicates after comment stripping"
+        );
     }
 }
 
@@ -131,7 +156,10 @@ mod summary_stats {
         let json = run_with_json(file_list.path());
 
         let files_analyzed = json["summary"]["files_analyzed"].as_u64().unwrap();
-        assert_eq!(files_analyzed, 3, "Should report correct number of files analyzed");
+        assert_eq!(
+            files_analyzed, 3,
+            "Should report correct number of files analyzed"
+        );
     }
 
     #[test]
@@ -155,7 +183,9 @@ mod language_specific {
         let file_list = create_file_list(&["python_with_comments.py", "python_no_comments.py"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         assert!(
             !duplicates.is_empty(),
             "Should detect duplicates in Python files after stripping # comments and docstrings"
@@ -168,7 +198,9 @@ mod language_specific {
         let file_list = create_file_list(&["js_with_comments.js", "js_no_comments.js"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         assert!(
             !duplicates.is_empty(),
             "Should detect duplicates in JavaScript files after stripping // and /* */ comments"
@@ -181,7 +213,9 @@ mod language_specific {
         let file_list = create_file_list(&["rust_with_comments.rs", "rust_no_comments.rs"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         assert!(
             !duplicates.is_empty(),
             "Should detect duplicates in Rust files after stripping comments (including nested)"
@@ -194,7 +228,9 @@ mod language_specific {
         let file_list = create_file_list(&["html_with_comments.html", "html_no_comments.html"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         assert!(
             !duplicates.is_empty(),
             "Should detect duplicates in HTML files after stripping <!-- --> comments"
@@ -207,7 +243,9 @@ mod language_specific {
         let file_list = create_file_list(&["css_with_comments.css", "css_no_comments.css"]);
         let json = run_with_json(file_list.path());
 
-        let duplicates = json["duplicates"].as_array().expect("duplicates should be array");
+        let duplicates = json["duplicates"]
+            .as_array()
+            .expect("duplicates should be array");
         assert!(
             !duplicates.is_empty(),
             "Should detect duplicates in CSS files after stripping /* */ comments"

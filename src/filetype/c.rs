@@ -21,7 +21,6 @@ impl CFileType {
     fn is_preprocessor_directive(line: &str) -> bool {
         line.trim_start().starts_with('#')
     }
-
 }
 
 impl FileType for CFileType {
@@ -88,10 +87,7 @@ mod tests {
     #[test]
     fn test_basic_lines() {
         let ft = CFileType::new(false, 3);
-        let lines = vec![
-            "int x = 5;".to_string(),
-            "int y = 10;".to_string(),
-        ];
+        let lines = vec!["int x = 5;".to_string(), "int y = 10;".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line(), "int x = 5;");
@@ -142,10 +138,7 @@ mod tests {
     #[test]
     fn test_preprocessor_kept() {
         let ft = CFileType::new(false, 3);
-        let lines = vec![
-            "#include <stdio.h>".to_string(),
-            "int x = 5;".to_string(),
-        ];
+        let lines = vec!["#include <stdio.h>".to_string(), "int x = 5;".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 2);
     }

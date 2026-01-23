@@ -10,8 +10,7 @@ fn fixtures_dir() -> PathBuf {
 
 /// Get the path to the built binary
 fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target/debug/lucidshark-duplo")
+    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/lucidshark-duplo")
 }
 
 /// Create a temporary file list with the given files

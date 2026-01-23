@@ -24,9 +24,13 @@ impl Exporter for ConsoleExporter {
 
             // Get original line numbers
             let start1 = source1.get_line(block.line1).line_number();
-            let end1 = source1.get_line(block.line1 + block.count - 1).line_number();
+            let end1 = source1
+                .get_line(block.line1 + block.count - 1)
+                .line_number();
             let start2 = source2.get_line(block.line2).line_number();
-            let end2 = source2.get_line(block.line2 + block.count - 1).line_number();
+            let end2 = source2
+                .get_line(block.line2 + block.count - 1)
+                .line_number();
 
             writeln!(
                 writer,
@@ -49,8 +53,16 @@ impl Exporter for ConsoleExporter {
 
         // Output summary
         writeln!(writer, "Configuration:")?;
-        writeln!(writer, "  Minimum block size: {} lines", config.min_block_size)?;
-        writeln!(writer, "  Minimum characters per line: {}", config.min_chars)?;
+        writeln!(
+            writer,
+            "  Minimum block size: {} lines",
+            config.min_block_size
+        )?;
+        writeln!(
+            writer,
+            "  Minimum characters per line: {}",
+            config.min_chars
+        )?;
         writeln!(
             writer,
             "  Block percentage threshold: {}%",

@@ -49,10 +49,7 @@ mod tests {
     #[test]
     fn test_basic_lines() {
         let ft = UnknownFileType::new(3);
-        let lines = vec![
-            "some text here".to_string(),
-            "more text".to_string(),
-        ];
+        let lines = vec!["some text here".to_string(), "more text".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 2);
     }
@@ -73,10 +70,7 @@ mod tests {
     #[test]
     fn test_min_chars_filtering() {
         let ft = UnknownFileType::new(10);
-        let lines = vec![
-            "short".to_string(),
-            "this is a longer line".to_string(),
-        ];
+        let lines = vec!["short".to_string(), "this is a longer line".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 1);
     }

@@ -37,9 +37,13 @@ impl Exporter for XmlExporter {
             let source2 = &source_files[block.source2_idx];
 
             let start1 = source1.get_line(block.line1).line_number();
-            let end1 = source1.get_line(block.line1 + block.count - 1).line_number();
+            let end1 = source1
+                .get_line(block.line1 + block.count - 1)
+                .line_number();
             let start2 = source2.get_line(block.line2).line_number();
-            let end2 = source2.get_line(block.line2 + block.count - 1).line_number();
+            let end2 = source2
+                .get_line(block.line2 + block.count - 1)
+                .line_number();
 
             writeln!(writer, r#"  <set LineCount="{}">"#, block.count)?;
             writeln!(
@@ -70,7 +74,11 @@ impl Exporter for XmlExporter {
         writeln!(writer, "  <summary")?;
         writeln!(writer, r#"    FilesAnalyzed="{}""#, result.files_analyzed)?;
         writeln!(writer, r#"    TotalLines="{}""#, result.total_lines)?;
-        writeln!(writer, r#"    DuplicateBlocks="{}""#, result.duplicate_blocks)?;
+        writeln!(
+            writer,
+            r#"    DuplicateBlocks="{}""#,
+            result.duplicate_blocks
+        )?;
         writeln!(writer, r#"    DuplicateLines="{}""#, result.duplicate_lines)?;
         if result.total_lines > 0 {
             let percent = (result.duplicate_lines as f64 / result.total_lines as f64) * 100.0;

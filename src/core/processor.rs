@@ -70,10 +70,7 @@ pub fn load_file_list(path: &str) -> Result<Vec<String>> {
     };
 
     // Filter out short lines and whitespace-only lines
-    Ok(lines
-        .into_iter()
-        .filter(|l| l.trim().len() > 5)
-        .collect())
+    Ok(lines.into_iter().filter(|l| l.trim().len() > 5).collect())
 }
 
 /// Load all source files from the file list
@@ -156,9 +153,7 @@ fn calc_min_block_size(config: &Config, m: usize, n: usize) -> usize {
         0
     };
 
-    (config.min_block_size as usize).max(
-        (config.min_block_size as usize).min(min_from_threshold),
-    )
+    (config.min_block_size as usize).max((config.min_block_size as usize).min(min_from_threshold))
 }
 
 /// Process a pair of files and find duplicates
@@ -318,8 +313,7 @@ pub fn process_files(
                 let mut all_blocks = Vec::new();
 
                 // Compare with self
-                let self_blocks =
-                    process_file_pair(source1, source1, i, i, config, &mut context);
+                let self_blocks = process_file_pair(source1, source1, i, i, config, &mut context);
                 all_blocks.extend(self_blocks);
 
                 // Compare with subsequent files
@@ -336,8 +330,7 @@ pub fn process_files(
                         continue;
                     }
 
-                    let blocks =
-                        process_file_pair(source1, source2, i, j, config, &mut context);
+                    let blocks = process_file_pair(source1, source2, i, j, config, &mut context);
                     all_blocks.extend(blocks);
                 }
 

@@ -66,11 +66,7 @@ pub fn create_file_type(
     ignore_preprocessor: bool,
     min_chars: u32,
 ) -> Box<dyn FileType> {
-    let extension = filename
-        .rsplit('.')
-        .next()
-        .unwrap_or("")
-        .to_lowercase();
+    let extension = filename.rsplit('.').next().unwrap_or("").to_lowercase();
 
     match extension.as_str() {
         // C/C++

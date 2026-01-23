@@ -56,9 +56,13 @@ impl Exporter for JsonExporter {
                 let source2 = &source_files[block.source2_idx];
 
                 let start1 = source1.get_line(block.line1).line_number();
-                let end1 = source1.get_line(block.line1 + block.count - 1).line_number();
+                let end1 = source1
+                    .get_line(block.line1 + block.count - 1)
+                    .line_number();
                 let start2 = source2.get_line(block.line2).line_number();
-                let end2 = source2.get_line(block.line2 + block.count - 1).line_number();
+                let end2 = source2
+                    .get_line(block.line2 + block.count - 1)
+                    .line_number();
 
                 let lines: Vec<String> = source1
                     .get_lines(block.line1, block.line1 + block.count)

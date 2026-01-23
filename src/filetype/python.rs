@@ -111,10 +111,7 @@ mod tests {
     #[test]
     fn test_basic_python() {
         let ft = PythonFileType::new(false, 3);
-        let lines = vec![
-            "def hello():".to_string(),
-            "    return 'world'".to_string(),
-        ];
+        let lines = vec!["def hello():".to_string(), "    return 'world'".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 2);
     }
