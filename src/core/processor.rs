@@ -106,7 +106,7 @@ fn load_source_files(
     if required_size > max_matrix_size {
         // Find the longest files for the error message
         let mut sorted: Vec<_> = source_files.iter().collect();
-        sorted.sort_by(|a, b| b.num_lines().cmp(&a.num_lines()));
+        sorted.sort_by_key(|f| std::cmp::Reverse(f.num_lines()));
 
         return Err(DuploError::FileTooLarge {
             path: sorted[0].filename().to_string(),
@@ -317,9 +317,7 @@ pub fn process_files(
                 all_blocks.extend(self_blocks);
 
                 // Compare with subsequent files
-                for j in (i + 1)..source_files.len() {
-                    let source2 = &source_files[j];
-
+                for (j, source2) in source_files.iter().enumerate().skip(i + 1) {
                     // Skip if configured to ignore same filename
                     if config.ignore_same_filename && source1.has_same_basename(source2) {
                         continue;

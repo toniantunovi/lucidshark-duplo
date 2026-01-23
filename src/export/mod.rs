@@ -40,7 +40,7 @@ pub fn get_output_writer(path: &str) -> Result<Box<dyn Write>> {
     if path == "-" {
         Ok(Box::new(BufWriter::new(io::stdout())))
     } else {
-        let file = File::create(path).map_err(|e| DuploError::Io(e))?;
+        let file = File::create(path).map_err(DuploError::Io)?;
         Ok(Box::new(BufWriter::new(file)))
     }
 }

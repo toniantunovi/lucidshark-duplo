@@ -32,7 +32,7 @@ impl PythonFileType {
             // Count quotes to check if # is inside a string (simplified)
             let single_quotes = before.matches('\'').count();
             let double_quotes = before.matches('"').count();
-            if single_quotes % 2 == 0 && double_quotes % 2 == 0 {
+            if single_quotes.is_multiple_of(2) && double_quotes.is_multiple_of(2) {
                 return &line[..idx];
             }
         }

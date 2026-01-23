@@ -48,15 +48,13 @@ impl FileType for JavaFileType {
                         chars.next();
                         in_block_comment = false;
                     }
+                } else if c == '/' && chars.peek() == Some(&'*') {
+                    chars.next();
+                    in_block_comment = true;
+                } else if c == '/' && chars.peek() == Some(&'/') {
+                    break;
                 } else {
-                    if c == '/' && chars.peek() == Some(&'*') {
-                        chars.next();
-                        in_block_comment = true;
-                    } else if c == '/' && chars.peek() == Some(&'/') {
-                        break;
-                    } else {
-                        cleaned.push(c);
-                    }
+                    cleaned.push(c);
                 }
             }
 
