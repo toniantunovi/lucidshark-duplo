@@ -69,11 +69,7 @@ impl FileType for PythonFileType {
             let triple_single = line.find("'''");
 
             let docstring_start: Option<(&str, usize)> = match (triple_double, triple_single) {
-                (Some(d), Some(s)) => Some(if d < s {
-                    ("\"\"\"", d)
-                } else {
-                    ("'''", s)
-                }),
+                (Some(d), Some(s)) => Some(if d < s { ("\"\"\"", d) } else { ("'''", s) }),
                 (Some(d), None) => Some(("\"\"\"", d)),
                 (None, Some(s)) => Some(("'''", s)),
                 (None, None) => None,
