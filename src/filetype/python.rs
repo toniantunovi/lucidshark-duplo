@@ -23,6 +23,51 @@ impl PythonFileType {
         trimmed.starts_with("import ") || trimmed.starts_with("from ")
     }
 
+    /// Check if a line is a decorator (@something)
+    fn is_decorator(line: &str) -> bool {
+        line.trim_start().starts_with('@')
+    }
+
+    /// Check if a line starts a function/method signature
+    fn starts_signature(line: &str) -> bool {
+        let trimmed = line.trim_start();
+        trimmed.starts_with("def ") || trimmed.starts_with("async def ")
+    }
+
+    /// Count parentheses in a line, returns (open_count, close_count)
+    fn count_parens(line: &str) -> (usize, usize) {
+        let mut open = 0;
+        let mut close = 0;
+        let mut in_string = false;
+        let mut string_char = ' ';
+        let mut chars = line.chars().peekable();
+
+        while let Some(c) = chars.next() {
+            if in_string {
+                if c == string_char && chars.peek() != Some(&string_char) {
+                    in_string = false;
+                }
+            } else if c == '"' || c == '\'' {
+                in_string = true;
+                string_char = c;
+            } else if c == '(' {
+                open += 1;
+            } else if c == ')' {
+                close += 1;
+            } else if c == '#' {
+                // Rest of line is comment
+                break;
+            }
+        }
+        (open, close)
+    }
+
+    /// Check if line ends a Python signature (ends with `:` after balanced parens)
+    fn ends_signature(line: &str) -> bool {
+        let trimmed = line.trim_end();
+        trimmed.ends_with(':')
+    }
+
     /// Remove Python single-line comments (# style)
     fn remove_comment(line: &str) -> &str {
         // Simple approach - find # not inside a string
@@ -49,6 +94,8 @@ impl FileType for PythonFileType {
         let mut result = Vec::new();
         let mut in_multiline_string = false;
         let mut multiline_delimiter: Option<&str> = None;
+        let mut in_signature = false;
+        let mut paren_depth: i32 = 0;
 
         for (line_num, line) in lines.iter().enumerate() {
             // Handle being inside a multiline string/docstring
@@ -60,6 +107,41 @@ impl FileType for PythonFileType {
                     }
                 }
                 // Skip all lines inside multiline strings
+                continue;
+            }
+
+            // Handle being inside a multi-line function signature
+            if in_signature {
+                let (open, close) = Self::count_parens(line);
+                paren_depth += open as i32 - close as i32;
+
+                // Signature ends when parens are balanced and line ends with ':'
+                if paren_depth <= 0 && Self::ends_signature(line) {
+                    in_signature = false;
+                    paren_depth = 0;
+                }
+                // Skip all lines inside signatures
+                continue;
+            }
+
+            // Skip decorators when ignore_preprocessor is enabled
+            if self.ignore_preprocessor && Self::is_decorator(line) {
+                continue;
+            }
+
+            // Check for start of function signature
+            if self.ignore_preprocessor && Self::starts_signature(line) {
+                let (open, close) = Self::count_parens(line);
+                paren_depth = open as i32 - close as i32;
+
+                // Check if signature completes on same line
+                if paren_depth <= 0 && Self::ends_signature(line) {
+                    // Single-line signature, skip it
+                    paren_depth = 0;
+                } else {
+                    // Multi-line signature starts
+                    in_signature = true;
+                }
                 continue;
             }
 
@@ -164,10 +246,12 @@ mod tests {
             "import os".to_string(),
             "from typing import List".to_string(),
             "def hello():".to_string(),
+            "    return 'world'".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
+        // Imports and signatures are filtered, only body remains
         assert_eq!(result.len(), 1);
-        assert_eq!(result[0].line(), "def hello():");
+        assert_eq!(result[0].line(), "return 'world'");
     }
 
     #[test]
@@ -244,5 +328,83 @@ mod tests {
         assert_eq!(result.len(), 2);
         assert_eq!(result[0].line(), "def hello():");
         assert_eq!(result[1].line(), "return 'world'");
+    }
+
+    #[test]
+    fn test_multiline_signature_filtering() {
+        // With ignore_preprocessor=true, signatures should be filtered
+        let ft = PythonFileType::new(true, 3);
+        let lines = vec![
+            "@abstractmethod".to_string(),
+            "def detect_duplication(".to_string(),
+            "    self,".to_string(),
+            "    context: ScanContext,".to_string(),
+            "    threshold: float = 10.0,".to_string(),
+            "    min_lines: int = 4,".to_string(),
+            ") -> DuplicationResult:".to_string(),
+            "    return self.scan()".to_string(),
+        ];
+        let result = ft.get_cleaned_source_lines(&lines);
+        // Should only have the body, not the signature or decorator
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return self.scan()");
+    }
+
+    #[test]
+    fn test_single_line_signature_filtering() {
+        let ft = PythonFileType::new(true, 3);
+        let lines = vec![
+            "def hello(self):".to_string(),
+            "    return 'world'".to_string(),
+        ];
+        let result = ft.get_cleaned_source_lines(&lines);
+        // Should only have the body
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return 'world'");
+    }
+
+    #[test]
+    fn test_signature_not_filtered_when_disabled() {
+        // With ignore_preprocessor=false, signatures should NOT be filtered
+        let ft = PythonFileType::new(false, 3);
+        let lines = vec![
+            "def hello(self):".to_string(),
+            "    return 'world'".to_string(),
+        ];
+        let result = ft.get_cleaned_source_lines(&lines);
+        // Should have both lines
+        assert_eq!(result.len(), 2);
+        assert_eq!(result[0].line(), "def hello(self):");
+        assert_eq!(result[1].line(), "return 'world'");
+    }
+
+    #[test]
+    fn test_decorator_filtering() {
+        let ft = PythonFileType::new(true, 3);
+        let lines = vec![
+            "@property".to_string(),
+            "@abstractmethod".to_string(),
+            "def value(self):".to_string(),
+            "    return self._value".to_string(),
+        ];
+        let result = ft.get_cleaned_source_lines(&lines);
+        // Should only have the body
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return self._value");
+    }
+
+    #[test]
+    fn test_async_signature_filtering() {
+        let ft = PythonFileType::new(true, 3);
+        let lines = vec![
+            "async def fetch_data(".to_string(),
+            "    self,".to_string(),
+            "    url: str,".to_string(),
+            ") -> Response:".to_string(),
+            "    return await self.client.get(url)".to_string(),
+        ];
+        let result = ft.get_cleaned_source_lines(&lines);
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return await self.client.get(url)");
     }
 }
