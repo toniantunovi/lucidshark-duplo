@@ -123,7 +123,7 @@ impl JavaScriptFileType {
         }
 
         // TypeScript: "methodName(params): ReturnType" pattern
-        if words.len() >= 1 && (trimmed.contains("): ") || trimmed.contains("):")) {
+        if !words.is_empty() && (trimmed.contains("): ") || trimmed.contains("):")) {
             return true;
         }
 
