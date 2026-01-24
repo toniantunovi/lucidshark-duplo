@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// C/C++ file type processor
 pub struct CFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl CFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a preprocessor directive
@@ -65,8 +61,8 @@ impl FileType for CFileType {
                 continue;
             }
 
-            // Skip preprocessor directives if configured
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            // Skip preprocessor directives
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -86,7 +82,7 @@ mod tests {
 
     #[test]
     fn test_basic_lines() {
-        let ft = CFileType::new(false, 3);
+        let ft = CFileType::new(3);
         let lines = vec!["int x = 5;".to_string(), "int y = 10;".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 2);
@@ -96,7 +92,7 @@ mod tests {
 
     #[test]
     fn test_single_line_comment_removal() {
-        let ft = CFileType::new(false, 3);
+        let ft = CFileType::new(3);
         let lines = vec![
             "int x = 5; // this is a comment".to_string(),
             "// full line comment".to_string(),
@@ -109,7 +105,7 @@ mod tests {
 
     #[test]
     fn test_block_comment_removal() {
-        let ft = CFileType::new(false, 3);
+        let ft = CFileType::new(3);
         let lines = vec![
             "int x /* comment */ = 5;".to_string(),
             "/* start".to_string(),
@@ -124,7 +120,7 @@ mod tests {
 
     #[test]
     fn test_preprocessor_filtering() {
-        let ft = CFileType::new(true, 3);
+        let ft = CFileType::new(3);
         let lines = vec![
             "#include <stdio.h>".to_string(),
             "#define MAX 100".to_string(),
@@ -136,16 +132,8 @@ mod tests {
     }
 
     #[test]
-    fn test_preprocessor_kept() {
-        let ft = CFileType::new(false, 3);
-        let lines = vec!["#include <stdio.h>".to_string(), "int x = 5;".to_string()];
-        let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
-    }
-
-    #[test]
     fn test_min_chars_filtering() {
-        let ft = CFileType::new(false, 5);
+        let ft = CFileType::new(5);
         let lines = vec![
             "int x = 5;".to_string(),
             "x++".to_string(), // too short after filtering

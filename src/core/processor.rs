@@ -83,7 +83,7 @@ fn load_source_files(
     let mut max_lines = 0usize;
 
     for path in file_list {
-        match SourceFile::load(path, config.min_chars, config.ignore_preprocessor) {
+        match SourceFile::load(path, config.min_chars) {
             Ok(sf) => {
                 let num_lines = sf.num_lines();
                 if num_lines > 0 {

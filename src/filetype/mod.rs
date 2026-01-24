@@ -56,43 +56,36 @@ pub trait FileType: Send + Sync {
 ///
 /// # Arguments
 /// * `filename` - The filename to determine type from
-/// * `ignore_preprocessor` - Whether to filter preprocessor directives
 /// * `min_chars` - Minimum characters required for a line to be included
 ///
 /// # Returns
 /// A boxed FileType implementation appropriate for the file extension
-pub fn create_file_type(
-    filename: &str,
-    ignore_preprocessor: bool,
-    min_chars: u32,
-) -> Box<dyn FileType> {
+pub fn create_file_type(filename: &str, min_chars: u32) -> Box<dyn FileType> {
     let extension = filename.rsplit('.').next().unwrap_or("").to_lowercase();
 
     match extension.as_str() {
         // C/C++
         "c" | "cpp" | "cxx" | "cc" | "h" | "hpp" | "hxx" | "hh" => {
-            Box::new(CFileType::new(ignore_preprocessor, min_chars))
+            Box::new(CFileType::new(min_chars))
         }
         // Java
-        "java" => Box::new(JavaFileType::new(ignore_preprocessor, min_chars)),
+        "java" => Box::new(JavaFileType::new(min_chars)),
         // C#
-        "cs" => Box::new(CSharpFileType::new(ignore_preprocessor, min_chars)),
+        "cs" => Box::new(CSharpFileType::new(min_chars)),
         // VB.NET
-        "vb" => Box::new(VbFileType::new(ignore_preprocessor, min_chars)),
+        "vb" => Box::new(VbFileType::new(min_chars)),
         // Erlang
-        "erl" | "hrl" => Box::new(ErlangFileType::new(ignore_preprocessor, min_chars)),
+        "erl" | "hrl" => Box::new(ErlangFileType::new(min_chars)),
         // Python
-        "py" | "pyw" | "pyi" => Box::new(PythonFileType::new(ignore_preprocessor, min_chars)),
+        "py" | "pyw" | "pyi" => Box::new(PythonFileType::new(min_chars)),
         // Rust
-        "rs" => Box::new(RustFileType::new(ignore_preprocessor, min_chars)),
+        "rs" => Box::new(RustFileType::new(min_chars)),
         // JavaScript/TypeScript
-        "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" => {
-            Box::new(JavaScriptFileType::new(ignore_preprocessor, min_chars))
-        }
+        "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" => Box::new(JavaScriptFileType::new(min_chars)),
         // HTML
         "html" | "htm" | "xhtml" => Box::new(HtmlFileType::new(min_chars)),
         // CSS
-        "css" | "scss" | "less" => Box::new(CssFileType::new(ignore_preprocessor, min_chars)),
+        "css" | "scss" | "less" => Box::new(CssFileType::new(min_chars)),
         // Unknown/fallback
         _ => Box::new(UnknownFileType::new(min_chars)),
     }
@@ -131,26 +124,26 @@ mod tests {
 
     #[test]
     fn test_create_file_type_c() {
-        let ft = create_file_type("test.cpp", false, 3);
+        let ft = create_file_type("test.cpp", 3);
         assert_eq!(ft.name(), "C/C++");
     }
 
     #[test]
     fn test_create_file_type_java() {
-        let ft = create_file_type("Test.java", false, 3);
+        let ft = create_file_type("Test.java", 3);
         assert_eq!(ft.name(), "Java");
     }
 
     #[test]
     fn test_create_file_type_unknown() {
-        let ft = create_file_type("test.xyz", false, 3);
+        let ft = create_file_type("test.xyz", 3);
         assert_eq!(ft.name(), "Unknown");
     }
 
     #[test]
     fn test_create_file_type_case_insensitive() {
-        let ft1 = create_file_type("test.CPP", false, 3);
-        let ft2 = create_file_type("test.Cpp", false, 3);
+        let ft1 = create_file_type("test.CPP", 3);
+        let ft2 = create_file_type("test.Cpp", 3);
         assert_eq!(ft1.name(), "C/C++");
         assert_eq!(ft2.name(), "C/C++");
     }

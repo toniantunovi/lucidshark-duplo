@@ -19,10 +19,6 @@ pub struct Config {
     /// Lines with fewer characters are ignored
     pub min_chars: u32,
 
-    /// Whether to ignore preprocessor directives (default: false)
-    /// When true, lines starting with # (C/C++) or equivalent are skipped
-    pub ignore_preprocessor: bool,
-
     /// Minimum block size in lines to report (default: 4)
     /// Duplicate blocks smaller than this are ignored
     pub min_block_size: u32,
@@ -55,7 +51,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             min_chars: 3,
-            ignore_preprocessor: false,
             min_block_size: 4,
             block_percent_threshold: 100,
             files_to_check: 0,

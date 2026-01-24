@@ -40,10 +40,6 @@ pub struct Cli {
     #[arg(short = 'j', long = "threads", value_name = "N")]
     pub threads: Option<usize>,
 
-    /// Ignore preprocessor directives
-    #[arg(short = 'i', long = "ignore-prep")]
-    pub ignore_prep: bool,
-
     /// Ignore file pairs with the same filename
     #[arg(short = 'd', long = "ignore-same-name")]
     pub ignore_same_name: bool,
@@ -75,7 +71,6 @@ impl Cli {
 
         Ok(Config {
             min_chars: self.min_chars,
-            ignore_preprocessor: self.ignore_prep,
             min_block_size: self.min_lines,
             block_percent_threshold: self.percent,
             files_to_check: self.num_files.unwrap_or(0),
@@ -100,7 +95,6 @@ mod tests {
         assert_eq!(config.min_block_size, 4);
         assert_eq!(config.min_chars, 3);
         assert_eq!(config.block_percent_threshold, 100);
-        assert!(!config.ignore_preprocessor);
         assert!(!config.ignore_same_filename);
         assert_eq!(config.output_format, OutputFormat::Console);
     }
@@ -143,7 +137,6 @@ mod tests {
             "100",
             "-j",
             "4",
-            "-i",
             "-d",
             "--json",
             "files.txt",
@@ -156,7 +149,6 @@ mod tests {
         assert_eq!(config.min_chars, 5);
         assert_eq!(config.files_to_check, 100);
         assert_eq!(config.num_threads, 4);
-        assert!(config.ignore_preprocessor);
         assert!(config.ignore_same_filename);
         assert_eq!(config.output_format, OutputFormat::Json);
         assert_eq!(config.list_filename, "files.txt");

@@ -68,11 +68,6 @@ impl Exporter for ConsoleExporter {
             "  Block percentage threshold: {}%",
             config.block_percent_threshold
         )?;
-        writeln!(
-            writer,
-            "  Ignore preprocessor directives: {}",
-            config.ignore_preprocessor
-        )?;
         writeln!(writer)?;
 
         writeln!(writer, "Summary:")?;

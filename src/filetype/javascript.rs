@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// JavaScript/TypeScript file type processor
 pub struct JavaScriptFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl JavaScriptFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a JS/TS "preprocessor" directive (import/export)
@@ -224,13 +220,13 @@ impl FileType for JavaScriptFileType {
                 continue;
             }
 
-            // Skip decorators when ignore_preprocessor is enabled
-            if self.ignore_preprocessor && Self::is_decorator(&cleaned) {
+            // Skip decorators
+            if Self::is_decorator(&cleaned) {
                 continue;
             }
 
             // Check for function/method signature start
-            if self.ignore_preprocessor && Self::starts_signature(&cleaned) {
+            if Self::starts_signature(&cleaned) {
                 let (balance, has_brace, has_arrow) = Self::analyze_line(&cleaned);
                 paren_depth = balance;
 
@@ -244,7 +240,7 @@ impl FileType for JavaScriptFileType {
                 continue;
             }
 
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -263,19 +259,21 @@ mod tests {
 
     #[test]
     fn test_basic_javascript() {
-        let ft = JavaScriptFileType::new(false, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "function hello() {".to_string(),
             "    return 'world';".to_string(),
             "}".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
+        // Signature filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return 'world';");
     }
 
     #[test]
     fn test_comment_removal() {
-        let ft = JavaScriptFileType::new(false, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "const x = 5; // comment".to_string(),
             "// full line comment".to_string(),
@@ -287,7 +285,7 @@ mod tests {
 
     #[test]
     fn test_import_filtering() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "import React from 'react';".to_string(),
             "export const foo = 1;".to_string(),
@@ -303,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_jsdoc_filtering() {
-        let ft = JavaScriptFileType::new(false, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "/**".to_string(),
             " * JSDoc comment".to_string(),
@@ -311,12 +309,13 @@ mod tests {
             "function hello() {".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 1);
+        // Block comment and signature filtered
+        assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn test_function_signature_filtering() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "function processData(input) {".to_string(),
             "    return input.map(x => x * 2);".to_string(),
@@ -329,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_async_function_signature_filtering() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "async function fetchData(url) {".to_string(),
             "    const response = await fetch(url);".to_string(),
@@ -343,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_multiline_typescript_signature_filtering() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "@Decorator()".to_string(),
             "async processRequest(".to_string(),
@@ -363,7 +362,7 @@ mod tests {
 
     #[test]
     fn test_class_method_signature_filtering() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "public getValue(): number {".to_string(),
             "    return this._value;".to_string(),
@@ -376,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_control_structures_not_filtered() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "if (condition) {".to_string(),
             "    doSomething();".to_string(),
@@ -392,7 +391,7 @@ mod tests {
 
     #[test]
     fn test_decorator_filtering() {
-        let ft = JavaScriptFileType::new(true, 3);
+        let ft = JavaScriptFileType::new(3);
         let lines = vec![
             "@Injectable()".to_string(),
             "@Autowired".to_string(),
@@ -401,18 +400,5 @@ mod tests {
         let result = ft.get_cleaned_source_lines(&lines);
         assert_eq!(result.len(), 1);
         assert_eq!(result[0].line(), "private service: Service;");
-    }
-
-    #[test]
-    fn test_signature_not_filtered_when_disabled() {
-        let ft = JavaScriptFileType::new(false, 3);
-        let lines = vec![
-            "function hello() {".to_string(),
-            "    return 'world';".to_string(),
-            "}".to_string(),
-        ];
-        let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "function hello() {");
     }
 }

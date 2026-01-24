@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// Python file type processor
 pub struct PythonFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl PythonFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a Python "preprocessor" directive (import/from)
@@ -62,10 +58,23 @@ impl PythonFileType {
         (open, close)
     }
 
-    /// Check if line ends a Python signature (ends with `:` after balanced parens)
+    /// Check if line ends a Python signature (contains `:` marking end of signature)
+    /// This handles cases like `def foo():` and `def foo(): """docstring`
     fn ends_signature(line: &str) -> bool {
         let trimmed = line.trim_end();
-        trimmed.ends_with(':')
+        // Simple case: line ends with colon
+        if trimmed.ends_with(':') {
+            return true;
+        }
+        // Handle "def foo(): """docstring" pattern - colon followed by docstring
+        if let Some(colon_pos) = trimmed.rfind(':') {
+            let after_colon = trimmed[colon_pos + 1..].trim_start();
+            // If there's a docstring start after the colon, signature ends at colon
+            if after_colon.starts_with("\"\"\"") || after_colon.starts_with("'''") {
+                return true;
+            }
+        }
+        false
     }
 
     /// Remove Python single-line comments (# style)
@@ -124,13 +133,13 @@ impl FileType for PythonFileType {
                 continue;
             }
 
-            // Skip decorators when ignore_preprocessor is enabled
-            if self.ignore_preprocessor && Self::is_decorator(line) {
+            // Skip decorators
+            if Self::is_decorator(line) {
                 continue;
             }
 
             // Check for start of function signature
-            if self.ignore_preprocessor && Self::starts_signature(line) {
+            if Self::starts_signature(line) {
                 let (open, close) = Self::count_parens(line);
                 paren_depth = open as i32 - close as i32;
 
@@ -138,6 +147,33 @@ impl FileType for PythonFileType {
                 if paren_depth <= 0 && Self::ends_signature(line) {
                     // Single-line signature, skip it
                     paren_depth = 0;
+
+                    // Check if there's a docstring starting on this line (def foo(): """doc)
+                    if let Some(colon_pos) = line.rfind(':') {
+                        let after_colon = &line[colon_pos + 1..];
+                        let triple_double = after_colon.find("\"\"\"");
+                        let triple_single = after_colon.find("'''");
+
+                        let delim = match (triple_double, triple_single) {
+                            (Some(d), Some(s)) => Some(if d < s { "\"\"\"" } else { "'''" }),
+                            (Some(_), None) => Some("\"\"\""),
+                            (None, Some(_)) => Some("'''"),
+                            (None, None) => None,
+                        };
+
+                        if let Some(d) = delim {
+                            // Check if docstring closes on same line
+                            let after_open = after_colon
+                                .find(d)
+                                .map(|pos| &after_colon[pos + 3..])
+                                .unwrap_or("");
+                            if !after_open.contains(d) {
+                                // Multiline docstring starts
+                                in_multiline_string = true;
+                                multiline_delimiter = Some(d);
+                            }
+                        }
+                    }
                 } else {
                     // Multi-line signature starts
                     in_signature = true;
@@ -168,7 +204,7 @@ impl FileType for PythonFileType {
 
                     if !cleaned.is_empty()
                         && is_valid_line(&cleaned, self.min_chars)
-                        && !(self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned))
+                        && !Self::is_preprocessor_directive(&cleaned)
                     {
                         result.push(SourceLine::new(cleaned, line_num + 1));
                     }
@@ -185,7 +221,7 @@ impl FileType for PythonFileType {
 
                     if !cleaned.is_empty()
                         && is_valid_line(&cleaned, self.min_chars)
-                        && !(self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned))
+                        && !Self::is_preprocessor_directive(&cleaned)
                     {
                         result.push(SourceLine::new(cleaned, line_num + 1));
                     }
@@ -201,7 +237,7 @@ impl FileType for PythonFileType {
                 continue;
             }
 
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -220,15 +256,17 @@ mod tests {
 
     #[test]
     fn test_basic_python() {
-        let ft = PythonFileType::new(false, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec!["def hello():".to_string(), "    return 'world'".to_string()];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
+        // Signature is filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return 'world'");
     }
 
     #[test]
     fn test_comment_removal() {
-        let ft = PythonFileType::new(false, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "x = 5  # this is a comment".to_string(),
             "# full line comment".to_string(),
@@ -241,7 +279,7 @@ mod tests {
 
     #[test]
     fn test_import_filtering() {
-        let ft = PythonFileType::new(true, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "import os".to_string(),
             "from typing import List".to_string(),
@@ -256,24 +294,21 @@ mod tests {
 
     #[test]
     fn test_docstring_filtering() {
-        let ft = PythonFileType::new(false, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "def hello():".to_string(),
             "    \"\"\"This is a docstring.\"\"\"".to_string(),
             "    return 'world'".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
+        // Signature filtered, docstring filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return 'world'");
     }
 
     #[test]
     fn test_multiline_docstring_with_content_on_first_line() {
-        // This is the common pattern: """Docstring starts here.
-        //     More content.
-        //     Args:
-        //         param: description
-        //     """
-        let ft = PythonFileType::new(false, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "def run_scan(self, context):".to_string(),
             "    \"\"\"Run duplication detection on the entire project.".to_string(),
@@ -291,16 +326,15 @@ mod tests {
             "    return self.scan(context)".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        // Should only have the def line and return line, all docstring content filtered
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "def run_scan(self, context):");
-        assert_eq!(result[1].line(), "return self.scan(context)");
+        // Signature and docstring filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return self.scan(context)");
     }
 
     #[test]
     fn test_docstring_on_same_line_as_def() {
         // Pattern: def foo(): """docstring starts here
-        let ft = PythonFileType::new(false, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "def foo(): \"\"\"This is a docstring.".to_string(),
             "    More docstring content.".to_string(),
@@ -308,15 +342,14 @@ mod tests {
             "    return 42".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        // Should have "def foo():" and "return 42"
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "def foo():");
-        assert_eq!(result[1].line(), "return 42");
+        // Signature and docstring filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return 42");
     }
 
     #[test]
     fn test_single_quote_docstring() {
-        let ft = PythonFileType::new(false, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "def hello():".to_string(),
             "    '''Single quote docstring.".to_string(),
@@ -325,15 +358,14 @@ mod tests {
             "    return 'world'".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "def hello():");
-        assert_eq!(result[1].line(), "return 'world'");
+        // Signature and docstring filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "return 'world'");
     }
 
     #[test]
     fn test_multiline_signature_filtering() {
-        // With ignore_preprocessor=true, signatures should be filtered
-        let ft = PythonFileType::new(true, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "@abstractmethod".to_string(),
             "def detect_duplication(".to_string(),
@@ -352,7 +384,7 @@ mod tests {
 
     #[test]
     fn test_single_line_signature_filtering() {
-        let ft = PythonFileType::new(true, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "def hello(self):".to_string(),
             "    return 'world'".to_string(),
@@ -364,23 +396,8 @@ mod tests {
     }
 
     #[test]
-    fn test_signature_not_filtered_when_disabled() {
-        // With ignore_preprocessor=false, signatures should NOT be filtered
-        let ft = PythonFileType::new(false, 3);
-        let lines = vec![
-            "def hello(self):".to_string(),
-            "    return 'world'".to_string(),
-        ];
-        let result = ft.get_cleaned_source_lines(&lines);
-        // Should have both lines
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "def hello(self):");
-        assert_eq!(result[1].line(), "return 'world'");
-    }
-
-    #[test]
     fn test_decorator_filtering() {
-        let ft = PythonFileType::new(true, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "@property".to_string(),
             "@abstractmethod".to_string(),
@@ -395,7 +412,7 @@ mod tests {
 
     #[test]
     fn test_async_signature_filtering() {
-        let ft = PythonFileType::new(true, 3);
+        let ft = PythonFileType::new(3);
         let lines = vec![
             "async def fetch_data(".to_string(),
             "    self,".to_string(),

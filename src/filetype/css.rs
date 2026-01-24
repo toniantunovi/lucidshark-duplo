@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// CSS file type processor
 pub struct CssFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl CssFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a CSS "preprocessor" directive (@import)
@@ -59,7 +55,7 @@ impl FileType for CssFileType {
                 continue;
             }
 
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -78,7 +74,7 @@ mod tests {
 
     #[test]
     fn test_basic_css() {
-        let ft = CssFileType::new(false, 3);
+        let ft = CssFileType::new(3);
         let lines = vec![
             ".container {".to_string(),
             "    width: 100%;".to_string(),
@@ -90,7 +86,7 @@ mod tests {
 
     #[test]
     fn test_comment_removal() {
-        let ft = CssFileType::new(false, 3);
+        let ft = CssFileType::new(3);
         let lines = vec![
             ".class { /* inline comment */ color: red; }".to_string(),
             "/* full line comment */".to_string(),
@@ -102,7 +98,7 @@ mod tests {
 
     #[test]
     fn test_import_filtering() {
-        let ft = CssFileType::new(true, 3);
+        let ft = CssFileType::new(3);
         let lines = vec![
             "@import 'reset.css';".to_string(),
             "@charset \"UTF-8\";".to_string(),

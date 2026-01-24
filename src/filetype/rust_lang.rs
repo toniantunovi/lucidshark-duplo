@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// Rust file type processor
 pub struct RustFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl RustFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a Rust "preprocessor" directive
@@ -182,13 +178,13 @@ impl FileType for RustFileType {
                 continue;
             }
 
-            // Skip attributes when ignore_preprocessor is enabled
-            if self.ignore_preprocessor && Self::is_attribute(&cleaned) {
+            // Skip attributes
+            if Self::is_attribute(&cleaned) {
                 continue;
             }
 
             // Check for function signature start
-            if self.ignore_preprocessor && Self::starts_signature(&cleaned) {
+            if Self::starts_signature(&cleaned) {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
                 paren_depth = balance;
 
@@ -202,7 +198,7 @@ impl FileType for RustFileType {
                 continue;
             }
 
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -221,19 +217,21 @@ mod tests {
 
     #[test]
     fn test_basic_rust() {
-        let ft = RustFileType::new(false, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "fn main() {".to_string(),
             "    println!(\"Hello\");".to_string(),
             "}".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2); // } is too short
+        // Signature filtered, only body remains
+        assert_eq!(result.len(), 1);
+        assert_eq!(result[0].line(), "println!(\"Hello\");");
     }
 
     #[test]
     fn test_comment_removal() {
-        let ft = RustFileType::new(false, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "let x = 5; // comment".to_string(),
             "// full line comment".to_string(),
@@ -246,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_nested_block_comment() {
-        let ft = RustFileType::new(false, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "let x = 5;".to_string(),
             "/* outer /* nested */ still comment */".to_string(),
@@ -258,7 +256,7 @@ mod tests {
 
     #[test]
     fn test_use_filtering() {
-        let ft = RustFileType::new(true, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "use std::io;".to_string(),
             "mod tests;".to_string(),
@@ -274,7 +272,7 @@ mod tests {
 
     #[test]
     fn test_function_signature_filtering() {
-        let ft = RustFileType::new(true, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "pub fn process_data(input: &str) -> Result<(), Error> {".to_string(),
             "    let result = parse(input)?;".to_string(),
@@ -288,7 +286,7 @@ mod tests {
 
     #[test]
     fn test_multiline_signature_filtering() {
-        let ft = RustFileType::new(true, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "#[derive(Debug)]".to_string(),
             "pub fn complex_function(".to_string(),
@@ -308,7 +306,7 @@ mod tests {
 
     #[test]
     fn test_attribute_filtering() {
-        let ft = RustFileType::new(true, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "#[cfg(test)]".to_string(),
             "#[derive(Clone, Debug)]".to_string(),
@@ -323,7 +321,7 @@ mod tests {
 
     #[test]
     fn test_impl_method_filtering() {
-        let ft = RustFileType::new(true, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "impl MyStruct {".to_string(),
             "    pub fn new(value: i32) -> Self {".to_string(),
@@ -338,21 +336,8 @@ mod tests {
     }
 
     #[test]
-    fn test_signature_not_filtered_when_disabled() {
-        let ft = RustFileType::new(false, 3);
-        let lines = vec![
-            "fn hello() {".to_string(),
-            "    println!(\"world\");".to_string(),
-            "}".to_string(),
-        ];
-        let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "fn hello() {");
-    }
-
-    #[test]
     fn test_control_structures_not_filtered() {
-        let ft = RustFileType::new(true, 3);
+        let ft = RustFileType::new(3);
         let lines = vec![
             "if condition {".to_string(),
             "    do_something();".to_string(),

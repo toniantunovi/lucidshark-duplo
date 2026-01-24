@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// Java file type processor
 pub struct JavaFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl JavaFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a Java "preprocessor" directive (package, import)
@@ -201,13 +197,13 @@ impl FileType for JavaFileType {
                 continue;
             }
 
-            // Skip annotations when ignore_preprocessor is enabled
-            if self.ignore_preprocessor && Self::is_annotation(&cleaned) {
+            // Skip annotations
+            if Self::is_annotation(&cleaned) {
                 continue;
             }
 
             // Check for method signature start
-            if self.ignore_preprocessor && Self::starts_signature(&cleaned) {
+            if Self::starts_signature(&cleaned) {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
                 paren_depth = balance;
 
@@ -221,7 +217,7 @@ impl FileType for JavaFileType {
                 continue;
             }
 
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -240,7 +236,7 @@ mod tests {
 
     #[test]
     fn test_basic_java() {
-        let ft = JavaFileType::new(false, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "public class Test {".to_string(),
             "    int x = 5;".to_string(),
@@ -252,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_import_filtering() {
-        let ft = JavaFileType::new(true, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "package com.example;".to_string(),
             "import java.util.List;".to_string(),
@@ -261,14 +257,14 @@ mod tests {
             "}".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        // With preprocessor filtering: public class should be filtered too
+        // Package and import should be filtered
         assert!(result.iter().all(|l| !l.line().starts_with("package")));
         assert!(result.iter().all(|l| !l.line().starts_with("import")));
     }
 
     #[test]
     fn test_javadoc_comment() {
-        let ft = JavaFileType::new(false, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "/**".to_string(),
             " * Javadoc comment".to_string(),
@@ -276,13 +272,13 @@ mod tests {
             "public void test() {".to_string(),
         ];
         let result = ft.get_cleaned_source_lines(&lines);
-        assert_eq!(result.len(), 1);
-        assert_eq!(result[0].line(), "public void test() {");
+        // Javadoc filtered, signature filtered
+        assert_eq!(result.len(), 0);
     }
 
     #[test]
     fn test_single_line_signature_filtering() {
-        let ft = JavaFileType::new(true, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "public void doSomething(String param) {".to_string(),
             "    System.out.println(param);".to_string(),
@@ -296,7 +292,7 @@ mod tests {
 
     #[test]
     fn test_multiline_signature_filtering() {
-        let ft = JavaFileType::new(true, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "@Override".to_string(),
             "public ResponseEntity<Result> processRequest(".to_string(),
@@ -314,7 +310,7 @@ mod tests {
 
     #[test]
     fn test_annotation_filtering() {
-        let ft = JavaFileType::new(true, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "@Deprecated".to_string(),
             "@SuppressWarnings(\"unused\")".to_string(),
@@ -327,22 +323,8 @@ mod tests {
     }
 
     #[test]
-    fn test_signature_not_filtered_when_disabled() {
-        let ft = JavaFileType::new(false, 3);
-        let lines = vec![
-            "public void test() {".to_string(),
-            "    int x = 5;".to_string(),
-            "}".to_string(),
-        ];
-        let result = ft.get_cleaned_source_lines(&lines);
-        // Should have both signature and body
-        assert_eq!(result.len(), 2);
-        assert_eq!(result[0].line(), "public void test() {");
-    }
-
-    #[test]
     fn test_control_structures_not_filtered() {
-        let ft = JavaFileType::new(true, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "if (condition) {".to_string(),
             "    doSomething();".to_string(),
@@ -360,7 +342,7 @@ mod tests {
 
     #[test]
     fn test_interface_method_filtering() {
-        let ft = JavaFileType::new(true, 3);
+        let ft = JavaFileType::new(3);
         let lines = vec![
             "public interface Service {".to_string(),
             "    Result process(Input input);".to_string(),

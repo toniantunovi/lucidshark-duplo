@@ -22,11 +22,10 @@ impl SourceFile {
     /// # Arguments
     /// * `path` - Path to the source file
     /// * `min_chars` - Minimum characters per line
-    /// * `ignore_preprocessor` - Whether to filter preprocessor directives
     ///
     /// # Returns
     /// A processed SourceFile, or an error if the file cannot be read
-    pub fn load(path: &str, min_chars: u32, ignore_preprocessor: bool) -> Result<Self> {
+    pub fn load(path: &str, min_chars: u32) -> Result<Self> {
         let file = File::open(path).map_err(|e| DuploError::FileNotFound {
             path: path.to_string(),
             reason: e.to_string(),
@@ -41,7 +40,7 @@ impl SourceFile {
                 reason: e.to_string(),
             })?;
 
-        let file_type = create_file_type(path, ignore_preprocessor, min_chars);
+        let file_type = create_file_type(path, min_chars);
         let source_lines = file_type.get_cleaned_source_lines(&raw_lines);
 
         Ok(Self {

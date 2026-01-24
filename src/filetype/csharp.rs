@@ -5,16 +5,12 @@ use crate::filetype::{clean_whitespace, is_valid_line, FileType};
 
 /// C# file type processor
 pub struct CSharpFileType {
-    ignore_preprocessor: bool,
     min_chars: u32,
 }
 
 impl CSharpFileType {
-    pub fn new(ignore_preprocessor: bool, min_chars: u32) -> Self {
-        Self {
-            ignore_preprocessor,
-            min_chars,
-        }
+    pub fn new(min_chars: u32) -> Self {
+        Self { min_chars }
     }
 
     /// Check if a line is a C# preprocessor directive
@@ -57,7 +53,7 @@ impl FileType for CSharpFileType {
                 continue;
             }
 
-            if self.ignore_preprocessor && Self::is_preprocessor_directive(&cleaned) {
+            if Self::is_preprocessor_directive(&cleaned) {
                 continue;
             }
 
@@ -76,7 +72,7 @@ mod tests {
 
     #[test]
     fn test_basic_csharp() {
-        let ft = CSharpFileType::new(false, 3);
+        let ft = CSharpFileType::new(3);
         let lines = vec![
             "public class Test {".to_string(),
             "    int x = 5;".to_string(),
@@ -88,7 +84,7 @@ mod tests {
 
     #[test]
     fn test_preprocessor_filtering() {
-        let ft = CSharpFileType::new(true, 3);
+        let ft = CSharpFileType::new(3);
         let lines = vec![
             "#region MyRegion".to_string(),
             "int x = 5;".to_string(),
