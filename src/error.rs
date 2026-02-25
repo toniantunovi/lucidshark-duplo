@@ -41,6 +41,26 @@ pub enum DuploError {
     #[error("I/O error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// Git operation failed
+    #[error("Git error: {0}")]
+    GitError(String),
+
+    /// Not inside a git repository
+    #[error("Not a git repository. The --git flag requires running inside a git repository.")]
+    NotGitRepo,
+
+    /// Cache error
+    #[error("Cache error: {0}")]
+    CacheError(String),
+
+    /// Baseline file error
+    #[error("Baseline error: {0}")]
+    BaselineError(String),
+
+    /// Baseline version mismatch
+    #[error("Baseline version {found} is not supported (expected {expected})")]
+    BaselineVersionMismatch { found: u32, expected: u32 },
+
     /// Generic error for other cases
     #[error("{0}")]
     Other(String),

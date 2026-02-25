@@ -28,6 +28,20 @@ impl SourceLine {
         }
     }
 
+    /// Create a SourceLine from cached data (with pre-computed hash)
+    ///
+    /// # Arguments
+    /// * `line` - The cleaned line text
+    /// * `line_number` - The 1-indexed original line number
+    /// * `hash` - The pre-computed hash value
+    pub fn from_cached(line: String, line_number: usize, hash: u32) -> Self {
+        Self {
+            line,
+            line_number,
+            hash,
+        }
+    }
+
     /// Get the line text
     #[inline]
     pub fn line(&self) -> &str {

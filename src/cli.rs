@@ -3,6 +3,7 @@
 use crate::config::{Config, OutputFormat};
 use crate::error::{DuploError, Result};
 use clap::Parser;
+use std::path::PathBuf;
 
 /// Code duplication detection tool
 #[derive(Parser, Debug)]
@@ -11,10 +12,10 @@ use clap::Parser;
 #[command(version)]
 #[command(about = "Detect code duplication in source files", long_about = None)]
 pub struct Cli {
-    /// Input file containing list of source files to analyze (one per line)
-    /// Use "-" to read from stdin
+    /// Input file containing list of source files to analyze (one per line).
+    /// Use "-" to read from stdin. Optional when --git is used.
     #[arg(value_name = "FILE_LIST")]
-    pub file_list: String,
+    pub file_list: Option<String>,
 
     /// Output file for results (use "-" for stdout)
     #[arg(value_name = "OUTPUT", default_value = "-")]
@@ -51,6 +52,41 @@ pub struct Cli {
     /// Output in XML format
     #[arg(long = "xml")]
     pub xml: bool,
+
+    // === Git Integration ===
+    /// Discover files from git (tracked files via git ls-files)
+    #[arg(long = "git")]
+    pub git: bool,
+
+    /// Only analyze files changed vs base branch (requires --git)
+    #[arg(long = "changed-only", requires = "git")]
+    pub changed_only: bool,
+
+    /// Base branch for --changed-only comparison (auto-detected if not specified)
+    #[arg(long = "base-branch", value_name = "BRANCH", requires = "changed_only")]
+    pub base_branch: Option<String>,
+
+    // === Incremental Cache ===
+    /// Enable incremental caching of processed files
+    #[arg(long = "cache")]
+    pub cache: bool,
+
+    /// Cache directory (default: .duplo-cache in repository root)
+    #[arg(long = "cache-dir", value_name = "DIR")]
+    pub cache_dir: Option<PathBuf>,
+
+    /// Clear the cache before running
+    #[arg(long = "clear-cache")]
+    pub clear_cache: bool,
+
+    // === Baseline Mode ===
+    /// Compare against baseline file, only report NEW duplicates
+    #[arg(long = "baseline", value_name = "FILE")]
+    pub baseline: Option<PathBuf>,
+
+    /// Save current results as a baseline file
+    #[arg(long = "save-baseline", value_name = "FILE")]
+    pub save_baseline: Option<PathBuf>,
 }
 
 impl Cli {
@@ -59,6 +95,13 @@ impl Cli {
         // Check for conflicting output format options
         if self.json && self.xml {
             return Err(DuploError::OutputFormatConflict);
+        }
+
+        // Validate: file_list required unless --git is used
+        if self.file_list.is_none() && !self.git {
+            return Err(DuploError::InvalidConfig(
+                "FILE_LIST is required unless --git is specified".to_string(),
+            ));
         }
 
         let output_format = if self.json {
@@ -79,6 +122,17 @@ impl Cli {
             ignore_same_filename: self.ignore_same_name,
             list_filename: self.file_list,
             output_filename: self.output,
+            // Git integration
+            git_mode: self.git,
+            changed_only: self.changed_only,
+            base_branch: self.base_branch,
+            // Caching
+            cache_enabled: self.cache,
+            cache_dir: self.cache_dir,
+            clear_cache: self.clear_cache,
+            // Baseline
+            baseline_path: self.baseline,
+            save_baseline_path: self.save_baseline,
         })
     }
 }
@@ -151,7 +205,101 @@ mod tests {
         assert_eq!(config.num_threads, 4);
         assert!(config.ignore_same_filename);
         assert_eq!(config.output_format, OutputFormat::Json);
-        assert_eq!(config.list_filename, "files.txt");
+        assert_eq!(config.list_filename, Some("files.txt".to_string()));
         assert_eq!(config.output_filename, "output.json");
+    }
+
+    #[test]
+    fn test_cli_git_mode() {
+        let cli = Cli::parse_from(["duplo", "--git"]);
+        let config = cli.into_config().unwrap();
+
+        assert!(config.git_mode);
+        assert!(!config.changed_only);
+        assert!(config.list_filename.is_none());
+    }
+
+    #[test]
+    fn test_cli_git_changed_only() {
+        let cli = Cli::parse_from(["duplo", "--git", "--changed-only"]);
+        let config = cli.into_config().unwrap();
+
+        assert!(config.git_mode);
+        assert!(config.changed_only);
+        assert!(config.base_branch.is_none());
+    }
+
+    #[test]
+    fn test_cli_git_changed_only_with_base_branch() {
+        let cli = Cli::parse_from(["duplo", "--git", "--changed-only", "--base-branch", "develop"]);
+        let config = cli.into_config().unwrap();
+
+        assert!(config.git_mode);
+        assert!(config.changed_only);
+        assert_eq!(config.base_branch, Some("develop".to_string()));
+    }
+
+    #[test]
+    fn test_cli_file_list_required_without_git() {
+        let cli = Cli::parse_from(["duplo"]);
+        let result = cli.into_config();
+
+        assert!(matches!(result, Err(DuploError::InvalidConfig(_))));
+    }
+
+    #[test]
+    fn test_cli_cache_options() {
+        let cli = Cli::parse_from(["duplo", "--git", "--cache", "--cache-dir", "/tmp/cache"]);
+        let config = cli.into_config().unwrap();
+
+        assert!(config.cache_enabled);
+        assert_eq!(config.cache_dir, Some(PathBuf::from("/tmp/cache")));
+        assert!(!config.clear_cache);
+    }
+
+    #[test]
+    fn test_cli_clear_cache() {
+        let cli = Cli::parse_from(["duplo", "--git", "--cache", "--clear-cache"]);
+        let config = cli.into_config().unwrap();
+
+        assert!(config.cache_enabled);
+        assert!(config.clear_cache);
+    }
+
+    #[test]
+    fn test_cli_baseline_options() {
+        let cli = Cli::parse_from(["duplo", "--git", "--baseline", "baseline.json"]);
+        let config = cli.into_config().unwrap();
+
+        assert_eq!(config.baseline_path, Some(PathBuf::from("baseline.json")));
+        assert!(config.save_baseline_path.is_none());
+    }
+
+    #[test]
+    fn test_cli_save_baseline() {
+        let cli = Cli::parse_from(["duplo", "--git", "--save-baseline", "new-baseline.json"]);
+        let config = cli.into_config().unwrap();
+
+        assert!(config.baseline_path.is_none());
+        assert_eq!(
+            config.save_baseline_path,
+            Some(PathBuf::from("new-baseline.json"))
+        );
+    }
+
+    #[test]
+    fn test_cli_baseline_and_save_baseline_together() {
+        let cli = Cli::parse_from([
+            "duplo",
+            "--git",
+            "--baseline",
+            "old.json",
+            "--save-baseline",
+            "new.json",
+        ]);
+        let config = cli.into_config().unwrap();
+
+        assert_eq!(config.baseline_path, Some(PathBuf::from("old.json")));
+        assert_eq!(config.save_baseline_path, Some(PathBuf::from("new.json")));
     }
 }

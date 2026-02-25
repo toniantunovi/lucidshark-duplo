@@ -3,6 +3,7 @@
 //! This module implements the LCS-based matrix algorithm for detecting
 //! code duplicates, ported from the C++ Duplo implementation.
 
+use crate::cache::FileCache;
 use crate::config::Config;
 use crate::core::{Block, SourceFile};
 
@@ -73,20 +74,53 @@ pub fn load_file_list(path: &str) -> Result<Vec<String>> {
     Ok(lines.into_iter().filter(|l| l.trim().len() > 5).collect())
 }
 
-/// Load all source files from the file list
+/// Load all source files from the file list (without caching)
+#[allow(dead_code)]
 fn load_source_files(
     file_list: &[String],
     config: &Config,
     progress: &impl Fn(&str),
 ) -> Result<(Vec<SourceFile>, usize)> {
+    load_source_files_with_cache(file_list, config, None, progress)
+}
+
+/// Load all source files from the file list with optional caching
+fn load_source_files_with_cache(
+    file_list: &[String],
+    config: &Config,
+    cache: Option<&FileCache>,
+    progress: &impl Fn(&str),
+) -> Result<(Vec<SourceFile>, usize)> {
     let mut source_files = Vec::new();
     let mut max_lines = 0usize;
+    let mut cache_hits = 0usize;
 
     for path in file_list {
+        // Try to load from cache first
+        if let Some(cache) = cache {
+            if let Some(lines) = cache.get(path) {
+                let sf = SourceFile::from_cached_lines(path.clone(), lines);
+                let num_lines = sf.num_lines();
+                if num_lines > 0 {
+                    max_lines = max_lines.max(num_lines);
+                    source_files.push(sf);
+                    cache_hits += 1;
+                }
+                continue;
+            }
+        }
+
+        // Load from disk
         match SourceFile::load(path, config.min_chars) {
             Ok(sf) => {
                 let num_lines = sf.num_lines();
                 if num_lines > 0 {
+                    // Save to cache if enabled
+                    if let Some(cache) = cache {
+                        if let Err(e) = cache.put(path, sf.lines_slice()) {
+                            progress(&format!("Warning: Failed to cache '{}': {}", path, e));
+                        }
+                    }
                     max_lines = max_lines.max(num_lines);
                     source_files.push(sf);
                 }
@@ -96,6 +130,14 @@ fn load_source_files(
                 progress(&format!("Warning: {}", e));
             }
         }
+    }
+
+    if cache.is_some() && cache_hits > 0 {
+        progress(&format!(
+            "Cache: {} hits, {} misses",
+            cache_hits,
+            source_files.len() - cache_hits
+        ));
     }
 
     // Validate memory requirements
@@ -258,18 +300,49 @@ fn process_file_pair(
     blocks
 }
 
-/// Main entry point for processing files
+/// Main entry point for processing files from a file list path.
+/// For git-based discovery, use `process_files_with_list` instead.
+#[allow(dead_code)]
 pub fn process_files(
     config: &Config,
     progress: impl Fn(&str) + Send + Sync,
 ) -> Result<(DuploResult, Vec<SourceFile>)> {
+    let file_list = match &config.list_filename {
+        Some(path) => load_file_list(path)?,
+        None => {
+            return Err(DuploError::InvalidConfig(
+                "No file list provided. Use --git or provide a file list.".to_string(),
+            ))
+        }
+    };
+
+    process_files_with_list(&file_list, config, progress)
+}
+
+/// Process files from a pre-resolved file list.
+/// This is the main processing function that handles duplicate detection.
+#[allow(dead_code)]
+pub fn process_files_with_list(
+    file_list: &[String],
+    config: &Config,
+    progress: impl Fn(&str) + Send + Sync,
+) -> Result<(DuploResult, Vec<SourceFile>)> {
+    process_files_with_cache(file_list, config, None, progress)
+}
+
+/// Process files from a pre-resolved file list with optional caching.
+/// This is the main processing function that handles duplicate detection.
+pub fn process_files_with_cache(
+    file_list: &[String],
+    config: &Config,
+    cache: Option<&FileCache>,
+    progress: impl Fn(&str) + Send + Sync,
+) -> Result<(DuploResult, Vec<SourceFile>)> {
     progress("Loading and hashing files...");
 
-    // Load file list
-    let file_list = load_file_list(&config.list_filename)?;
-
-    // Load source files
-    let (source_files, max_lines) = load_source_files(&file_list, config, &progress)?;
+    // Load source files (with optional cache)
+    let (source_files, max_lines) =
+        load_source_files_with_cache(file_list, config, cache, &progress)?;
 
     if source_files.is_empty() {
         return Ok((

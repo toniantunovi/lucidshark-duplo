@@ -58,6 +58,14 @@ impl SourceFile {
         }
     }
 
+    /// Create a SourceFile from cached lines
+    pub fn from_cached_lines(filename: String, source_lines: Vec<SourceLine>) -> Self {
+        Self {
+            filename,
+            source_lines,
+        }
+    }
+
     /// Get the filename
     #[inline]
     pub fn filename(&self) -> &str {
@@ -95,6 +103,11 @@ impl SourceFile {
     /// Iterate over all source lines
     pub fn lines(&self) -> impl Iterator<Item = &SourceLine> {
         self.source_lines.iter()
+    }
+
+    /// Get a slice of all source lines (for caching)
+    pub fn lines_slice(&self) -> &[SourceLine] {
+        &self.source_lines
     }
 
     /// Check if two files have the same basename (for -d flag)
