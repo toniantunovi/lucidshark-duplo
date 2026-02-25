@@ -1,7 +1,7 @@
 //! lucidshark-duplo - Code duplication detection tool
 //!
-//! A Rust reimplementation of Duplo with modernized output formats
-//! and expanded language support.
+//! A fast, feature-rich code duplication detector with git integration,
+//! incremental caching, baseline comparison, and multi-language support.
 
 mod baseline;
 mod cache;

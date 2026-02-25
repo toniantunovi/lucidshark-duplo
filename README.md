@@ -1,33 +1,33 @@
 # lucidshark-duplo
 
-A fast code duplication detection tool written in Rust. Finds duplicate code blocks across multiple files to help identify candidates for refactoring.
+A fast, feature-rich code duplication detection tool written in Rust. Finds duplicate code blocks across multiple files to help identify candidates for refactoring.
 
 ## Features
 
-- **Fast parallel processing** - Uses all available CPU cores via Rayon
-- **Multiple output formats** - Console (human-readable), JSON, and XML
-- **Language-aware** - Strips comments and filters noise (imports, preprocessor directives) for accurate detection
+- **Git integration** - Analyze tracked files automatically, or focus only on changed files for PR reviews
+- **Incremental caching** - Cache processed files for faster subsequent runs
+- **Baseline comparison** - Track known duplicates and only report new ones in CI/CD
+- **Fast parallel processing** - Uses all available CPU cores
+- **Multiple output formats** - Console, JSON, and XML
+- **Language-aware** - Smart filtering of comments, imports, docstrings, and boilerplate
 - **Configurable thresholds** - Set minimum block size and character limits
-- **CI/CD friendly** - Exit code 1 when duplicates found, 0 when clean
 
 ## Supported Languages
 
-| Language | Extensions | Comment Handling |
-|----------|------------|------------------|
-| C/C++ | `.c`, `.cpp`, `.cxx`, `.h`, `.hpp` | `//`, `/* */`, preprocessor filtering |
-| C# | `.cs` | `//`, `/* */`, preprocessor filtering |
-| Java | `.java` | `//`, `/* */`, `/** */`, import filtering |
-| JavaScript/TypeScript | `.js`, `.ts`, `.jsx`, `.tsx` | `//`, `/* */`, JSDoc, import/require filtering |
-| Python | `.py` | `#`, `"""` docstrings, import filtering |
-| Rust | `.rs` | `//`, `/* */` (nested), `use` filtering |
-| HTML | `.html`, `.htm` | `<!-- -->` |
-| CSS | `.css` | `/* */`, `@import` filtering |
-| Visual Basic | `.vb` | `'` comments, `Imports` filtering |
-| Erlang | `.erl`, `.hrl` | `%` comments, `-module` filtering |
+| Language | Extensions | Filtering |
+|----------|------------|-----------|
+| C/C++ | `.c`, `.cpp`, `.cxx`, `.h`, `.hpp` | Comments, preprocessor directives |
+| C# | `.cs` | Comments, preprocessor directives |
+| Java | `.java` | Comments, JavaDoc, imports, annotations, method signatures |
+| JavaScript/TypeScript | `.js`, `.ts`, `.jsx`, `.tsx` | Comments, JSDoc, imports, decorators, function signatures |
+| Python | `.py` | Comments, docstrings, imports, decorators, function signatures |
+| Rust | `.rs` | Comments (nested), `use` statements, attributes, function signatures |
+| HTML | `.html`, `.htm` | HTML comments |
+| CSS | `.css` | Comments, `@import` statements |
+| Visual Basic | `.vb` | Comments, `Imports` statements |
+| Erlang | `.erl`, `.hrl` | Comments, `-module` declarations |
 
 ## Installation
-
-### From source
 
 ```bash
 git clone https://github.com/lucidshark-code/lucidshark-duplo.git
@@ -39,45 +39,66 @@ The binary will be at `target/release/lucidshark-duplo`.
 
 ## Usage
 
-```bash
-lucidshark-duplo [OPTIONS] <FILE_LIST>
-```
+### Basic Usage
 
-The `FILE_LIST` is a text file containing paths to analyze, one per line.
+```bash
+# From a file list
+lucidshark-duplo files.txt
+
+# From git repository (all tracked files)
+lucidshark-duplo --git
+
+# Only files changed vs main branch
+lucidshark-duplo --git --changed-only
+```
 
 ### Options
 
-| Option | Short | Description | Default |
-|--------|-------|-------------|---------|
-| `--min-lines <N>` | `-m` | Minimum duplicate block size in lines | 4 |
-| `--min-chars <N>` | `-c` | Minimum characters per line to consider | 3 |
-| `--ignore-preprocessor` | `-i` | Ignore preprocessor directives | false |
-| `--ignore-same-filename` | `-s` | Ignore duplicates in files with same name | false |
-| `--json` | | Output in JSON format | |
-| `--xml` | | Output in XML format | |
-| `--help` | `-h` | Print help | |
-| `--version` | `-V` | Print version | |
+| Option | Description |
+|--------|-------------|
+| `--git` | Discover files from git (tracked files) |
+| `--changed-only` | Only analyze files changed vs base branch |
+| `--base-branch <BRANCH>` | Base branch for comparison (auto-detects main/master) |
+| `--cache` | Enable incremental caching |
+| `--cache-dir <DIR>` | Cache directory (default: `.duplo-cache`) |
+| `--clear-cache` | Clear cache before running |
+| `--baseline <FILE>` | Compare against baseline, report only NEW duplicates |
+| `--save-baseline <FILE>` | Save results as baseline for future comparison |
+| `-m, --min-lines <N>` | Minimum duplicate block size (default: 4) |
+| `-c, --min-chars <N>` | Minimum characters per line (default: 3) |
+| `-s, --ignore-same-filename` | Ignore duplicates in files with same name |
+| `--json` | Output in JSON format |
+| `--xml` | Output in XML format |
 
 ### Examples
 
-Create a file list:
+**Find duplicates in a git repository:**
 ```bash
-find src -name "*.rs" > files.txt
+lucidshark-duplo --git
 ```
 
-Run with default settings:
+**PR workflow - only check changed files:**
 ```bash
-lucidshark-duplo files.txt
+lucidshark-duplo --git --changed-only --base-branch main
 ```
 
-Output as JSON with minimum 10-line blocks:
+**CI/CD with baseline - fail only on NEW duplicates:**
 ```bash
-lucidshark-duplo --json -m 10 files.txt
+# First run: establish baseline
+lucidshark-duplo --git --save-baseline baseline.json
+
+# Subsequent runs: only fail on new duplicates
+lucidshark-duplo --git --baseline baseline.json
 ```
 
-Ignore preprocessor directives in C code:
+**Fast repeated runs with caching:**
 ```bash
-lucidshark-duplo -i c_files.txt
+lucidshark-duplo --git --cache
+```
+
+**JSON output with minimum 10-line blocks:**
+```bash
+lucidshark-duplo --git --json -m 10
 ```
 
 ## Output Formats
@@ -88,7 +109,6 @@ lucidshark-duplo -i c_files.txt
 Configuration:
   Minimum block size: 4 lines
   Minimum characters: 3
-  Ignore preprocessor: false
 
 Found duplicate block (5 lines):
   src/foo.rs (10-14) <-> src/bar.rs (25-29)
@@ -110,22 +130,7 @@ Summary:
 
 ```json
 {
-  "duplicates": [
-    {
-      "line_count": 5,
-      "file1": {
-        "path": "src/foo.rs",
-        "start_line": 10,
-        "end_line": 14
-      },
-      "file2": {
-        "path": "src/bar.rs",
-        "start_line": 25,
-        "end_line": 29
-      },
-      "lines": ["let x = compute_value();", "..."]
-    }
-  ],
+  "duplicates": [...],
   "summary": {
     "files_analyzed": 42,
     "total_lines": 8521,
@@ -136,50 +141,19 @@ Summary:
 }
 ```
 
-### XML
-
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<duplo>
-  <set LineCount="5">
-    <block SourceFile="src/foo.rs" StartLineNumber="10" EndLineNumber="14"/>
-    <block SourceFile="src/bar.rs" StartLineNumber="25" EndLineNumber="29"/>
-  </set>
-  <summary Files="42" Lines="8521" Duplicates="7" DuplicateLines="89" Percent="1.04"/>
-</duplo>
-```
-
-## How It Works
-
-1. **Load files** - Read each file and identify language by extension
-2. **Preprocess** - Strip comments and filter noise based on language rules
-3. **Hash lines** - Compute FNV-1a hash for each normalized line
-4. **Build index** - Create hash-to-files lookup for candidate matching
-5. **Compare pairs** - For files sharing hashes, use matrix algorithm to find longest common subsequences
-6. **Extract blocks** - Identify contiguous duplicate regions meeting minimum size threshold
-7. **Report** - Output results in requested format
-
-The algorithm is based on the approach from [Duplo](https://github.com/dlidstrom/Duplo), reimplemented in Rust with parallel processing.
-
 ## Exit Codes
 
 | Code | Meaning |
 |------|---------|
-| 0 | No duplicates found |
+| 0 | No duplicates found (or no NEW duplicates with baseline) |
 | 1 | Duplicates found |
-| 2 | Error (missing files, invalid arguments, etc.) |
+| 2 | Error |
 
 ## Running Tests
 
 ```bash
 cargo test
 ```
-
-This runs both unit tests (72) and integration tests (28) covering CLI behavior, detection accuracy, and output format validation.
-
-## Acknowledgments
-
-This project is a Rust reimplementation of [Duplo](https://github.com/dlidstrom/Duplo) by Daniel Lidström. The core algorithm for detecting duplicate code blocks using matrix-based longest common subsequence matching is based on Duplo's approach.
 
 ## License
 
