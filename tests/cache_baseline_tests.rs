@@ -280,7 +280,8 @@ int duplicate_function() {
 
         // Baseline should be valid JSON
         let content = fs::read_to_string(&baseline_path).unwrap();
-        let json: serde_json::Value = serde_json::from_str(&content).expect("Baseline should be valid JSON");
+        let json: serde_json::Value =
+            serde_json::from_str(&content).expect("Baseline should be valid JSON");
 
         assert!(json["version"].is_u64(), "Baseline should have version");
         assert!(json["entries"].is_array(), "Baseline should have entries");

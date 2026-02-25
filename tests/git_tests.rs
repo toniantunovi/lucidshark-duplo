@@ -111,8 +111,7 @@ int duplicate_function() {
 
         // Parse JSON output
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         // Should have analyzed 2 files
         assert_eq!(
@@ -153,8 +152,7 @@ int tracked() {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         // Should only analyze 1 file (the tracked one)
         assert_eq!(
@@ -174,7 +172,10 @@ int tracked() {
         create_source_file(temp.path(), "config.toml", "[package]\nname = \"test\"");
         create_source_file(temp.path(), "data.json", "{}");
 
-        git_add(temp.path(), &["code.c", "README.md", "config.toml", "data.json"]);
+        git_add(
+            temp.path(),
+            &["code.c", "README.md", "config.toml", "data.json"],
+        );
         git_commit(temp.path(), "initial commit");
 
         // Run duplo with --git
@@ -185,8 +186,7 @@ int tracked() {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         // Should only analyze 1 file (code.c)
         assert_eq!(
@@ -206,7 +206,11 @@ int tracked() {
             .output()
             .expect("Failed to run binary");
 
-        assert_eq!(output.status.code(), Some(2), "Should fail with exit code 2");
+        assert_eq!(
+            output.status.code(),
+            Some(2),
+            "Should fail with exit code 2"
+        );
 
         let stderr = String::from_utf8_lossy(&output.stderr);
         assert!(
@@ -221,7 +225,6 @@ mod changed_only {
 
     #[test]
     fn test_changed_only_requires_git_flag() {
-
         let output = Command::new(binary_path())
             .args(["--changed-only", "files.txt"])
             .output()
@@ -276,8 +279,7 @@ int original() {
         );
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         assert!(
             json["summary"]["duplicate_blocks"].as_u64().unwrap() > 0,
@@ -410,8 +412,7 @@ mod git_with_file_list {
             .expect("Failed to run binary");
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         // Should analyze tracked files, not the file list
         assert_eq!(
@@ -444,8 +445,7 @@ mod edge_cases {
         );
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         assert_eq!(
             json["summary"]["files_analyzed"].as_u64().unwrap(),
@@ -477,8 +477,7 @@ mod edge_cases {
         );
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         assert_eq!(
             json["summary"]["files_analyzed"].as_u64().unwrap(),
@@ -520,8 +519,7 @@ int deep_function() {
         );
 
         let stdout = String::from_utf8_lossy(&output.stdout);
-        let json: serde_json::Value =
-            serde_json::from_str(&stdout).expect("Failed to parse JSON");
+        let json: serde_json::Value = serde_json::from_str(&stdout).expect("Failed to parse JSON");
 
         assert_eq!(
             json["summary"]["files_analyzed"].as_u64().unwrap(),

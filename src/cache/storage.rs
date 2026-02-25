@@ -171,9 +171,8 @@ impl FileCache {
         })?;
 
         let writer = BufWriter::new(file);
-        serde_json::to_writer(writer, &entry).map_err(|e| {
-            DuploError::CacheError(format!("Failed to write cache entry: {}", e))
-        })?;
+        serde_json::to_writer(writer, &entry)
+            .map_err(|e| DuploError::CacheError(format!("Failed to write cache entry: {}", e)))?;
 
         Ok(())
     }

@@ -161,9 +161,8 @@ pub fn save_baseline(baseline: &Baseline, path: &Path) -> Result<()> {
     })?;
 
     let writer = BufWriter::new(file);
-    serde_json::to_writer_pretty(writer, baseline).map_err(|e| {
-        DuploError::BaselineError(format!("Failed to write baseline: {}", e))
-    })?;
+    serde_json::to_writer_pretty(writer, baseline)
+        .map_err(|e| DuploError::BaselineError(format!("Failed to write baseline: {}", e)))?;
 
     Ok(())
 }
@@ -179,9 +178,8 @@ pub fn load_baseline(path: &Path) -> Result<Baseline> {
     })?;
 
     let reader = BufReader::new(file);
-    let baseline: Baseline = serde_json::from_reader(reader).map_err(|e| {
-        DuploError::BaselineError(format!("Failed to parse baseline file: {}", e))
-    })?;
+    let baseline: Baseline = serde_json::from_reader(reader)
+        .map_err(|e| DuploError::BaselineError(format!("Failed to parse baseline file: {}", e)))?;
 
     // Validate version
     if baseline.version != BASELINE_VERSION {

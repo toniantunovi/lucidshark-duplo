@@ -231,7 +231,13 @@ mod tests {
 
     #[test]
     fn test_cli_git_changed_only_with_base_branch() {
-        let cli = Cli::parse_from(["duplo", "--git", "--changed-only", "--base-branch", "develop"]);
+        let cli = Cli::parse_from([
+            "duplo",
+            "--git",
+            "--changed-only",
+            "--base-branch",
+            "develop",
+        ]);
         let config = cli.into_config().unwrap();
 
         assert!(config.git_mode);

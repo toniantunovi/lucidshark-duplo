@@ -142,14 +142,14 @@ pub fn get_changed_files(base_branch: &str) -> Result<Vec<String>> {
 fn is_supported_file(path: &str) -> bool {
     let supported_extensions = [
         // C/C++
-        ".c", ".cpp", ".cxx", ".cc", ".h", ".hpp", ".hxx", ".hh", // Java
+        ".c", ".cpp", ".cxx", ".cc", ".h", ".hpp", ".hxx", ".hh",   // Java
         ".java", // C#
-        ".cs", // Python
-        ".py", // Rust
-        ".rs", // JavaScript/TypeScript
+        ".cs",   // Python
+        ".py",   // Rust
+        ".rs",   // JavaScript/TypeScript
         ".js", ".ts", ".jsx", ".tsx", // HTML/CSS
         ".html", ".htm", ".css", // Visual Basic
-        ".vb", // Erlang
+        ".vb",  // Erlang
         ".erl",
     ];
 

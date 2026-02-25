@@ -144,7 +144,10 @@ mod tests {
     fn test_cleaning_config_hash_deterministic() {
         let config1 = Config::default();
         let config2 = Config::default();
-        assert_eq!(config1.cleaning_config_hash(), config2.cleaning_config_hash());
+        assert_eq!(
+            config1.cleaning_config_hash(),
+            config2.cleaning_config_hash()
+        );
     }
 
     #[test]
@@ -155,7 +158,10 @@ mod tests {
         let mut config2 = Config::default();
         config2.min_chars = 5;
 
-        assert_ne!(config1.cleaning_config_hash(), config2.cleaning_config_hash());
+        assert_ne!(
+            config1.cleaning_config_hash(),
+            config2.cleaning_config_hash()
+        );
     }
 
     #[test]
@@ -167,7 +173,10 @@ mod tests {
         config2.min_block_size = 10;
 
         // min_block_size doesn't affect cleaning, only detection
-        assert_eq!(config1.cleaning_config_hash(), config2.cleaning_config_hash());
+        assert_eq!(
+            config1.cleaning_config_hash(),
+            config2.cleaning_config_hash()
+        );
     }
 
     #[test]
