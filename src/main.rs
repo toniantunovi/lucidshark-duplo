@@ -92,7 +92,7 @@ fn main() -> ExitCode {
 
     // === Phase 2: Process Files ===
     let (result, source_files) =
-        match process_files_with_cache(&file_list, &config, cache.as_ref(), &progress) {
+        match process_files_with_cache(&file_list, &config, cache.as_ref(), progress) {
             Ok(r) => r,
             Err(e) => {
                 eprintln!("Error: {}", e);

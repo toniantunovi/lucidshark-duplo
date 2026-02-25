@@ -84,7 +84,7 @@ pub fn detect_base_branch() -> Result<String> {
         if o.status.success() {
             let remote = String::from_utf8_lossy(&o.stdout).trim().to_string();
             // remote is like "origin/main", extract "main"
-            if let Some(branch) = remote.split('/').last() {
+            if let Some(branch) = remote.split('/').next_back() {
                 return Ok(branch.to_string());
             }
         }

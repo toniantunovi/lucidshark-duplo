@@ -199,7 +199,7 @@ pub fn clear_cache(config: &Config) -> Result<()> {
             })?;
 
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "cache") {
+            if path.extension().is_some_and(|ext| ext == "cache") {
                 fs::remove_file(&path).map_err(|e| {
                     DuploError::CacheError(format!(
                         "Failed to remove cache file '{}': {}",
