@@ -16,10 +16,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - target: x86_64-unknown-linux-gnu
+          - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
             artifact: lucidshark-duplo
             archive: lucidshark-duplo-linux-x86_64.tar.gz
+            use_cross: true
 
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
