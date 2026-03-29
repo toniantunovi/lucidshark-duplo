@@ -10,11 +10,17 @@ mod c;
 mod csharp;
 mod css;
 mod erlang;
+mod go;
 mod html;
 mod java;
 mod javascript;
+mod kotlin;
+mod php;
 mod python;
+mod ruby;
 mod rust_lang;
+mod scala;
+mod swift;
 mod unknown;
 mod vb;
 
@@ -24,11 +30,17 @@ pub use c::CFileType;
 pub use csharp::CSharpFileType;
 pub use css::CssFileType;
 pub use erlang::ErlangFileType;
+pub use go::GoFileType;
 pub use html::HtmlFileType;
 pub use java::JavaFileType;
 pub use javascript::JavaScriptFileType;
+pub use kotlin::KotlinFileType;
+pub use php::PhpFileType;
 pub use python::PythonFileType;
+pub use ruby::RubyFileType;
 pub use rust_lang::RustFileType;
+pub use scala::ScalaFileType;
+pub use swift::SwiftFileType;
 pub use unknown::UnknownFileType;
 pub use vb::VbFileType;
 
@@ -82,6 +94,20 @@ pub fn create_file_type(filename: &str, min_chars: u32) -> Box<dyn FileType> {
         "rs" => Box::new(RustFileType::new(min_chars)),
         // JavaScript/TypeScript
         "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" => Box::new(JavaScriptFileType::new(min_chars)),
+        // Go
+        "go" => Box::new(GoFileType::new(min_chars)),
+        // Kotlin
+        "kt" | "kts" => Box::new(KotlinFileType::new(min_chars)),
+        // Ruby
+        "rb" | "rake" | "gemspec" => Box::new(RubyFileType::new(min_chars)),
+        // PHP
+        "php" | "phtml" | "php3" | "php4" | "php5" | "phps" => {
+            Box::new(PhpFileType::new(min_chars))
+        }
+        // Swift
+        "swift" => Box::new(SwiftFileType::new(min_chars)),
+        // Scala
+        "scala" | "sc" => Box::new(ScalaFileType::new(min_chars)),
         // HTML
         "html" | "htm" | "xhtml" => Box::new(HtmlFileType::new(min_chars)),
         // CSS
@@ -138,6 +164,48 @@ mod tests {
     fn test_create_file_type_unknown() {
         let ft = create_file_type("test.xyz", 3);
         assert_eq!(ft.name(), "Unknown");
+    }
+
+    #[test]
+    fn test_create_file_type_go() {
+        let ft = create_file_type("main.go", 3);
+        assert_eq!(ft.name(), "Go");
+    }
+
+    #[test]
+    fn test_create_file_type_kotlin() {
+        let ft = create_file_type("Main.kt", 3);
+        assert_eq!(ft.name(), "Kotlin");
+        let ft2 = create_file_type("build.kts", 3);
+        assert_eq!(ft2.name(), "Kotlin");
+    }
+
+    #[test]
+    fn test_create_file_type_ruby() {
+        let ft = create_file_type("app.rb", 3);
+        assert_eq!(ft.name(), "Ruby");
+        let ft2 = create_file_type("Rakefile.rake", 3);
+        assert_eq!(ft2.name(), "Ruby");
+    }
+
+    #[test]
+    fn test_create_file_type_php() {
+        let ft = create_file_type("index.php", 3);
+        assert_eq!(ft.name(), "PHP");
+    }
+
+    #[test]
+    fn test_create_file_type_swift() {
+        let ft = create_file_type("ViewController.swift", 3);
+        assert_eq!(ft.name(), "Swift");
+    }
+
+    #[test]
+    fn test_create_file_type_scala() {
+        let ft = create_file_type("Main.scala", 3);
+        assert_eq!(ft.name(), "Scala");
+        let ft2 = create_file_type("script.sc", 3);
+        assert_eq!(ft2.name(), "Scala");
     }
 
     #[test]
