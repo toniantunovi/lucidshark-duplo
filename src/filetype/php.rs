@@ -1,7 +1,7 @@
 //! PHP file type implementation
 
 use crate::core::SourceLine;
-use crate::filetype::{clean_whitespace, is_valid_line, FileType};
+use crate::filetype::{clean_whitespace, is_valid_line, FileType, SignatureTracker};
 
 /// PHP file type processor
 pub struct PhpFileType {
@@ -154,8 +154,7 @@ impl FileType for PhpFileType {
     fn get_cleaned_source_lines(&self, lines: &[String]) -> Vec<SourceLine> {
         let mut result = Vec::new();
         let mut in_block_comment = false;
-        let mut in_signature = false;
-        let mut paren_depth: i32 = 0;
+        let mut sig = SignatureTracker::new();
 
         for (line_num, line) in lines.iter().enumerate() {
             let mut cleaned = String::new();
@@ -190,33 +189,19 @@ impl FileType for PhpFileType {
                 continue;
             }
 
-            // Handle being inside a multi-line signature
-            if in_signature {
+            if sig.in_signature {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth += balance;
-
-                if paren_depth <= 0 && has_brace {
-                    in_signature = false;
-                    paren_depth = 0;
-                }
+                sig.update(balance, has_brace);
                 continue;
             }
 
-            // Skip attributes
             if Self::is_attribute(&cleaned) {
                 continue;
             }
 
-            // Check for function signature start
             if Self::starts_signature(&cleaned) {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth = balance;
-
-                if paren_depth <= 0 && has_brace {
-                    paren_depth = 0;
-                } else if balance > 0 || !has_brace {
-                    in_signature = true;
-                }
+                sig.start(balance, has_brace);
                 continue;
             }
 

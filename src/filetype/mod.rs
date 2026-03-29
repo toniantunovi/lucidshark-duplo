@@ -135,6 +135,139 @@ pub(crate) fn clean_whitespace(line: &str) -> String {
     line.trim().to_string()
 }
 
+/// Strip C-style block comments (/* */) and line comments (//).
+/// Updates `in_block_comment` state across lines. Returns cleaned content.
+pub(crate) fn strip_c_style_comments(line: &str, in_block_comment: &mut bool) -> String {
+    let mut cleaned = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if *in_block_comment {
+            if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                *in_block_comment = false;
+            }
+        } else if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            *in_block_comment = true;
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            break;
+        } else {
+            cleaned.push(c);
+        }
+    }
+
+    cleaned
+}
+
+/// Strip nested block comments (/* /* */ */) and line comments (//).
+/// Used by languages that support nested comments (Rust, Kotlin, Scala, Swift).
+pub(crate) fn strip_nested_comments(
+    line: &str,
+    in_block_comment: &mut bool,
+    comment_depth: &mut i32,
+) -> String {
+    let mut cleaned = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if *in_block_comment {
+            if c == '/' && chars.peek() == Some(&'*') {
+                chars.next();
+                *comment_depth += 1;
+            } else if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                *comment_depth -= 1;
+                if *comment_depth == 0 {
+                    *in_block_comment = false;
+                }
+            }
+        } else if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            *in_block_comment = true;
+            *comment_depth = 1;
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            break;
+        } else {
+            cleaned.push(c);
+        }
+    }
+
+    cleaned
+}
+
+/// Analyze a line for parenthesis balance and opening brace.
+/// Correctly handles string ("...") and char ('...') literals.
+pub(crate) fn analyze_line_basic(line: &str) -> (i32, bool) {
+    let mut paren_balance = 0;
+    let mut has_open_brace = false;
+    let mut in_string = false;
+    let mut in_char = false;
+
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_string {
+            if c == '"' {
+                in_string = false;
+            } else if c == '\\' {
+                chars.next();
+            }
+        } else if in_char {
+            if c == '\'' {
+                in_char = false;
+            } else if c == '\\' {
+                chars.next();
+            }
+        } else {
+            match c {
+                '"' => in_string = true,
+                '\'' => in_char = true,
+                '(' => paren_balance += 1,
+                ')' => paren_balance -= 1,
+                '{' => has_open_brace = true,
+                '/' if chars.peek() == Some(&'/') => break,
+                _ => {}
+            }
+        }
+    }
+
+    (paren_balance, has_open_brace)
+}
+
+/// Tracks multi-line function/method signature state across lines.
+pub(crate) struct SignatureTracker {
+    pub in_signature: bool,
+    pub paren_depth: i32,
+}
+
+impl SignatureTracker {
+    pub fn new() -> Self {
+        Self {
+            in_signature: false,
+            paren_depth: 0,
+        }
+    }
+
+    /// Update state while inside a multi-line signature.
+    pub fn update(&mut self, balance: i32, has_terminator: bool) {
+        self.paren_depth += balance;
+        if self.paren_depth <= 0 && has_terminator {
+            self.in_signature = false;
+            self.paren_depth = 0;
+        }
+    }
+
+    /// Start tracking a new signature. The signature line is always consumed.
+    pub fn start(&mut self, balance: i32, has_terminator: bool) {
+        self.paren_depth = balance;
+        if self.paren_depth <= 0 && has_terminator {
+            self.paren_depth = 0;
+        } else {
+            self.in_signature = true;
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

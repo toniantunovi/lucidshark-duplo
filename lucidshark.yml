@@ -1,0 +1,48 @@
+version: 1
+
+project:
+  name: lucidshark-duplo
+  languages: [rust]
+
+pipeline:
+  linting:
+    enabled: true
+    tools: [clippy]
+  type_checking:
+    enabled: true
+    tools: [cargo_check]
+  formatting:
+    enabled: true
+    tools: [rustfmt]
+  security:
+    enabled: true
+    tools:
+      - name: trivy
+        domains: [sca]
+      - name: opengrep
+        domains: [sast]
+  testing:
+    enabled: true
+    tools: [cargo]
+  coverage:
+    enabled: false  # tarpaulin requires Linux; enable in CI
+  duplication:
+    enabled: true
+    threshold: 15.0  # filetype modules share structural patterns (starts_signature, is_directive, etc.) that can't be deduplicated further
+    min_lines: 7
+    tools: [duplo]
+
+fail_on:
+  linting: error
+  type_checking: error
+  formatting: error
+  security: high
+  testing: any
+  duplication: any
+
+exclude:
+  - "**/.git/**"
+  - "**/.lucidshark/**"
+  - "**/target/**"
+  - "**/tests/fixtures/**"
+  - "**/tests/**"  # integration tests have inherently repetitive setup/assertion patterns

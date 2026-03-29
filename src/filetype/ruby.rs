@@ -105,7 +105,10 @@ impl FileType for RubyFileType {
             if let Some(pos) = line.find("<<") {
                 let after = &line[pos + 2..];
                 let after = after.trim_start_matches(['~', '-']);
-                let delim: String = after.chars().take_while(|c| c.is_alphanumeric() || *c == '_').collect();
+                let delim: String = after
+                    .chars()
+                    .take_while(|c| c.is_alphanumeric() || *c == '_')
+                    .collect();
                 if !delim.is_empty() && after.starts_with(delim.as_str()) {
                     in_heredoc = true;
                     heredoc_delimiter = Some(delim);

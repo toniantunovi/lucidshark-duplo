@@ -7,7 +7,7 @@ fn calculate_sum(a: i32, b: i32) -> i32 {
 }
 
 /* Block comment
-   spanning lines */
+spanning lines */
 fn calculate_product(a: i32, b: i32) -> i32 {
     /* /* nested */ comment */
     let result = a * b;

@@ -1,7 +1,9 @@
 //! Go file type implementation
 
 use crate::core::SourceLine;
-use crate::filetype::{clean_whitespace, is_valid_line, FileType};
+use crate::filetype::{
+    clean_whitespace, is_valid_line, strip_c_style_comments, FileType, SignatureTracker,
+};
 
 /// Go file type processor
 pub struct GoFileType {
@@ -20,13 +22,6 @@ impl GoFileType {
             || trimmed.starts_with("import ")
             || trimmed == "import ("
             || trimmed == ")"
-    }
-
-    /// Check if a line is inside an import block
-    fn is_import_line(line: &str) -> bool {
-        let trimmed = line.trim();
-        // Lines inside import() block are quoted strings
-        trimmed.starts_with('"') || trimmed.starts_with('.')
     }
 
     /// Check if a line starts a function/method signature
@@ -96,29 +91,10 @@ impl FileType for GoFileType {
         let mut result = Vec::new();
         let mut in_block_comment = false;
         let mut in_import_block = false;
-        let mut in_signature = false;
-        let mut paren_depth: i32 = 0;
+        let mut sig = SignatureTracker::new();
 
         for (line_num, line) in lines.iter().enumerate() {
-            let mut cleaned = String::new();
-            let mut chars = line.chars().peekable();
-
-            while let Some(c) = chars.next() {
-                if in_block_comment {
-                    if c == '*' && chars.peek() == Some(&'/') {
-                        chars.next();
-                        in_block_comment = false;
-                    }
-                } else if c == '/' && chars.peek() == Some(&'*') {
-                    chars.next();
-                    in_block_comment = true;
-                } else if c == '/' && chars.peek() == Some(&'/') {
-                    break;
-                } else {
-                    cleaned.push(c);
-                }
-            }
-
+            let cleaned = strip_c_style_comments(line, &mut in_block_comment);
             let cleaned = clean_whitespace(&cleaned);
             if cleaned.is_empty() {
                 continue;
@@ -136,28 +112,15 @@ impl FileType for GoFileType {
                 continue;
             }
 
-            // Handle being inside a multi-line signature
-            if in_signature {
+            if sig.in_signature {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth += balance;
-
-                if paren_depth <= 0 && has_brace {
-                    in_signature = false;
-                    paren_depth = 0;
-                }
+                sig.update(balance, has_brace);
                 continue;
             }
 
-            // Check for function signature start
             if Self::starts_signature(&cleaned) {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth = balance;
-
-                if paren_depth <= 0 && has_brace {
-                    paren_depth = 0;
-                } else {
-                    in_signature = true;
-                }
+                sig.start(balance, has_brace);
                 continue;
             }
 

@@ -9,10 +9,10 @@ import "fmt"
  */
 
 func main() {
-    // Setup variables
-    x := computeValue()
-    y := transformData(x)
-    z := finalizeResult(y)
-    result := processOutput(z)
-    fmt.Println(result) /* inline comment */
+	// Setup variables
+	x := computeValue()
+	y := transformData(x)
+	z := finalizeResult(y)
+	result := processOutput(z)
+	fmt.Println(result) /* inline comment */
 }

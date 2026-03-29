@@ -2,6 +2,14 @@
 /target/
 Cargo.lock
 
+# Claude
+.claude/
+
+# LucidShark
+.lucidshark/
+lucidshark
+.mcp.json
+
 # IDE
 .idea/
 .vscode/

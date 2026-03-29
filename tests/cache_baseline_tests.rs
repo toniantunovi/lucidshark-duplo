@@ -1,29 +1,10 @@
 //! Integration tests for caching and baseline features
 
+mod common;
+
 use std::fs;
-use std::io::Write;
-use std::path::PathBuf;
 use std::process::Command;
 use tempfile::TempDir;
-
-fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_lucidshark-duplo"))
-}
-
-/// Create a source file with given content
-fn create_source_file(dir: &std::path::Path, name: &str, content: &str) {
-    fs::write(dir.join(name), content).expect("Failed to write file");
-}
-
-/// Create a file list pointing to the given files
-fn create_file_list(dir: &std::path::Path, files: &[&str]) -> PathBuf {
-    let file_list_path = dir.join("files.txt");
-    let mut file_list = fs::File::create(&file_list_path).unwrap();
-    for file in files {
-        writeln!(file_list, "{}", dir.join(file).display()).unwrap();
-    }
-    file_list_path
-}
 
 mod caching {
     use super::*;
@@ -41,14 +22,14 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "a.c", code);
-        create_source_file(temp.path(), "b.c", code);
-        let file_list = create_file_list(temp.path(), &["a.c", "b.c"]);
+        common::create_source_file(temp.path(), "a.c", code);
+        common::create_source_file(temp.path(), "b.c", code);
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c", "b.c"]);
 
         let cache_dir = temp.path().join("my-cache");
 
         // Run with --cache
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -94,14 +75,14 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "a.c", code);
-        create_source_file(temp.path(), "b.c", code);
-        let file_list = create_file_list(temp.path(), &["a.c", "b.c"]);
+        common::create_source_file(temp.path(), "a.c", code);
+        common::create_source_file(temp.path(), "b.c", code);
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c", "b.c"]);
 
         let cache_dir = temp.path().join("cache");
 
         // First run - cache miss
-        let output1 = Command::new(binary_path())
+        let output1 = Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -120,7 +101,7 @@ int duplicate_function() {
         );
 
         // Second run - cache hit
-        let output2 = Command::new(binary_path())
+        let output2 = Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -145,13 +126,13 @@ int duplicate_function() {
         let temp = TempDir::new().unwrap();
 
         // Create source files
-        create_source_file(temp.path(), "a.c", "int main() { return 0; }");
-        let file_list = create_file_list(temp.path(), &["a.c"]);
+        common::create_source_file(temp.path(), "a.c", "int main() { return 0; }");
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c"]);
 
         let cache_dir = temp.path().join("cache");
 
         // First run to create cache
-        Command::new(binary_path())
+        Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -171,7 +152,7 @@ int duplicate_function() {
         assert!(!cache_files.is_empty(), "Cache files should exist");
 
         // Run with --clear-cache
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -195,13 +176,13 @@ int duplicate_function() {
         let temp = TempDir::new().unwrap();
 
         // Create initial source file
-        create_source_file(temp.path(), "a.c", "int x = 1;");
-        let file_list = create_file_list(temp.path(), &["a.c"]);
+        common::create_source_file(temp.path(), "a.c", "int x = 1;");
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c"]);
 
         let cache_dir = temp.path().join("cache");
 
         // First run to create cache
-        Command::new(binary_path())
+        Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -213,10 +194,10 @@ int duplicate_function() {
             .expect("Failed to run binary");
 
         // Modify the file
-        create_source_file(temp.path(), "a.c", "int x = 2; int y = 3;");
+        common::create_source_file(temp.path(), "a.c", "int x = 2; int y = 3;");
 
         // Second run - cache should be invalidated
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--cache",
                 "--cache-dir",
@@ -253,14 +234,14 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "a.c", code);
-        create_source_file(temp.path(), "b.c", code);
-        let file_list = create_file_list(temp.path(), &["a.c", "b.c"]);
+        common::create_source_file(temp.path(), "a.c", code);
+        common::create_source_file(temp.path(), "b.c", code);
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c", "b.c"]);
 
         let baseline_path = temp.path().join("baseline.json");
 
         // Run with --save-baseline
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--save-baseline",
                 baseline_path.to_str().unwrap(),
@@ -300,14 +281,14 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "a.c", code);
-        create_source_file(temp.path(), "b.c", code);
-        let file_list = create_file_list(temp.path(), &["a.c", "b.c"]);
+        common::create_source_file(temp.path(), "a.c", code);
+        common::create_source_file(temp.path(), "b.c", code);
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c", "b.c"]);
 
         let baseline_path = temp.path().join("baseline.json");
 
         // First run: save baseline
-        Command::new(binary_path())
+        Command::new(common::binary_path())
             .args([
                 "--save-baseline",
                 baseline_path.to_str().unwrap(),
@@ -318,7 +299,7 @@ int duplicate_function() {
             .expect("Failed to run binary");
 
         // Second run: use baseline (same files, no new duplicates)
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--baseline",
                 baseline_path.to_str().unwrap(),
@@ -353,17 +334,17 @@ int duplicate_function() {
 
         // Create initial source files
         let code1 = "int x = 1;";
-        create_source_file(temp.path(), "a.c", code1);
-        let file_list = create_file_list(temp.path(), &["a.c", "b.c", "c.c"]);
+        common::create_source_file(temp.path(), "a.c", code1);
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c", "b.c", "c.c"]);
 
         // Create baseline with no duplicates
-        create_source_file(temp.path(), "b.c", "int y = 2;");
-        create_source_file(temp.path(), "c.c", "int z = 3;");
+        common::create_source_file(temp.path(), "b.c", "int y = 2;");
+        common::create_source_file(temp.path(), "c.c", "int z = 3;");
 
         let baseline_path = temp.path().join("baseline.json");
 
         // Create baseline (no duplicates)
-        Command::new(binary_path())
+        Command::new(common::binary_path())
             .args([
                 "--save-baseline",
                 baseline_path.to_str().unwrap(),
@@ -382,11 +363,11 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "b.c", duplicate_code);
-        create_source_file(temp.path(), "c.c", duplicate_code);
+        common::create_source_file(temp.path(), "b.c", duplicate_code);
+        common::create_source_file(temp.path(), "c.c", duplicate_code);
 
         // Run with baseline - should find NEW duplicates
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--baseline",
                 baseline_path.to_str().unwrap(),
@@ -427,15 +408,15 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "a.c", code);
-        create_source_file(temp.path(), "b.c", code);
-        let file_list = create_file_list(temp.path(), &["a.c", "b.c"]);
+        common::create_source_file(temp.path(), "a.c", code);
+        common::create_source_file(temp.path(), "b.c", code);
+        let file_list = common::create_file_list_in_dir(temp.path(), &["a.c", "b.c"]);
 
         let old_baseline = temp.path().join("old-baseline.json");
         let new_baseline = temp.path().join("new-baseline.json");
 
         // Create initial baseline
-        Command::new(binary_path())
+        Command::new(common::binary_path())
             .args([
                 "--save-baseline",
                 old_baseline.to_str().unwrap(),
@@ -446,7 +427,7 @@ int duplicate_function() {
             .expect("Failed to run binary");
 
         // Run with both --baseline and --save-baseline
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--baseline",
                 old_baseline.to_str().unwrap(),

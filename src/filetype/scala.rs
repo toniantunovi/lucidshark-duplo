@@ -1,7 +1,10 @@
 //! Scala file type implementation
 
 use crate::core::SourceLine;
-use crate::filetype::{clean_whitespace, is_valid_line, FileType};
+use crate::filetype::{
+    analyze_line_basic, clean_whitespace, is_valid_line, strip_nested_comments, FileType,
+    SignatureTracker,
+};
 
 /// Scala file type processor
 pub struct ScalaFileType {
@@ -29,13 +32,10 @@ impl ScalaFileType {
         let trimmed = line.trim_start();
 
         // Skip class/trait/object declarations
-        if trimmed.contains("class ")
-            || trimmed.contains("trait ")
-            || trimmed.contains("object ")
+        if (trimmed.contains("class ") || trimmed.contains("trait ") || trimmed.contains("object "))
+            && !trimmed.contains("def ")
         {
-            if !trimmed.contains("def ") {
-                return false;
-            }
+            return false;
         }
 
         // Must have '(' for a function signature (or just "def name:" for parameterless)
@@ -94,44 +94,7 @@ impl ScalaFileType {
 
         // Check for "def" anywhere in the words before paren
         let words: Vec<&str> = before_paren.split_whitespace().collect();
-        words.iter().any(|w| *w == "def")
-    }
-
-    /// Count parentheses and check for opening brace or equals
-    fn analyze_line(line: &str) -> (i32, bool) {
-        let mut paren_balance = 0;
-        let mut has_open_brace = false;
-        let mut in_string = false;
-        let mut in_char = false;
-
-        let mut chars = line.chars().peekable();
-        while let Some(c) = chars.next() {
-            if in_string {
-                if c == '"' {
-                    in_string = false;
-                } else if c == '\\' {
-                    chars.next();
-                }
-            } else if in_char {
-                if c == '\'' {
-                    in_char = false;
-                } else if c == '\\' {
-                    chars.next();
-                }
-            } else {
-                match c {
-                    '"' => in_string = true,
-                    '\'' => in_char = true,
-                    '(' => paren_balance += 1,
-                    ')' => paren_balance -= 1,
-                    '{' => has_open_brace = true,
-                    '/' if chars.peek() == Some(&'/') => break,
-                    _ => {}
-                }
-            }
-        }
-
-        (paren_balance, has_open_brace)
+        words.contains(&"def")
     }
 }
 
@@ -143,69 +106,29 @@ impl FileType for ScalaFileType {
     fn get_cleaned_source_lines(&self, lines: &[String]) -> Vec<SourceLine> {
         let mut result = Vec::new();
         let mut in_block_comment = false;
-        let mut comment_depth = 0; // Scala supports nested block comments
-        let mut in_signature = false;
-        let mut paren_depth: i32 = 0;
+        let mut comment_depth = 0;
+        let mut sig = SignatureTracker::new();
 
         for (line_num, line) in lines.iter().enumerate() {
-            let mut cleaned = String::new();
-            let mut chars = line.chars().peekable();
-
-            while let Some(c) = chars.next() {
-                if in_block_comment {
-                    if c == '/' && chars.peek() == Some(&'*') {
-                        chars.next();
-                        comment_depth += 1;
-                    } else if c == '*' && chars.peek() == Some(&'/') {
-                        chars.next();
-                        comment_depth -= 1;
-                        if comment_depth == 0 {
-                            in_block_comment = false;
-                        }
-                    }
-                } else if c == '/' && chars.peek() == Some(&'*') {
-                    chars.next();
-                    in_block_comment = true;
-                    comment_depth = 1;
-                } else if c == '/' && chars.peek() == Some(&'/') {
-                    break;
-                } else {
-                    cleaned.push(c);
-                }
-            }
-
+            let cleaned = strip_nested_comments(line, &mut in_block_comment, &mut comment_depth);
             let cleaned = clean_whitespace(&cleaned);
             if cleaned.is_empty() {
                 continue;
             }
 
-            // Handle being inside a multi-line signature
-            if in_signature {
-                let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth += balance;
-
-                if paren_depth <= 0 && has_brace {
-                    in_signature = false;
-                    paren_depth = 0;
-                }
+            if sig.in_signature {
+                let (balance, has_brace) = analyze_line_basic(&cleaned);
+                sig.update(balance, has_brace);
                 continue;
             }
 
-            // Skip annotations
             if Self::is_annotation(&cleaned) {
                 continue;
             }
 
-            // Check for function signature start
             if Self::starts_signature(&cleaned) {
-                let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth = balance;
-
-                if paren_depth <= 0 && has_brace {
-                    paren_depth = 0;
-                } else if balance > 0 || !has_brace {
-                    in_signature = true;
-                }
+                let (balance, has_brace) = analyze_line_basic(&cleaned);
+                sig.start(balance, has_brace);
                 continue;
             }
 

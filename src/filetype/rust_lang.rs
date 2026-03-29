@@ -1,7 +1,9 @@
 //! Rust file type implementation
 
 use crate::core::SourceLine;
-use crate::filetype::{clean_whitespace, is_valid_line, FileType};
+use crate::filetype::{
+    clean_whitespace, is_valid_line, strip_nested_comments, FileType, SignatureTracker,
+};
 
 /// Rust file type processor
 pub struct RustFileType {
@@ -122,79 +124,29 @@ impl FileType for RustFileType {
     fn get_cleaned_source_lines(&self, lines: &[String]) -> Vec<SourceLine> {
         let mut result = Vec::new();
         let mut in_block_comment = false;
-        let mut comment_depth = 0; // Rust supports nested block comments
-        let mut in_signature = false;
-        let mut paren_depth: i32 = 0;
+        let mut comment_depth = 0;
+        let mut sig = SignatureTracker::new();
 
         for (line_num, line) in lines.iter().enumerate() {
-            let mut cleaned = String::new();
-            let mut chars = line.chars().peekable();
-
-            while let Some(c) = chars.next() {
-                if in_block_comment {
-                    // Check for nested comment start
-                    if c == '/' && chars.peek() == Some(&'*') {
-                        chars.next();
-                        comment_depth += 1;
-                    }
-                    // Check for comment end
-                    else if c == '*' && chars.peek() == Some(&'/') {
-                        chars.next();
-                        comment_depth -= 1;
-                        if comment_depth == 0 {
-                            in_block_comment = false;
-                        }
-                    }
-                } else {
-                    // Check for block comment start
-                    if c == '/' && chars.peek() == Some(&'*') {
-                        chars.next();
-                        in_block_comment = true;
-                        comment_depth = 1;
-                    }
-                    // Check for line comment
-                    else if c == '/' && chars.peek() == Some(&'/') {
-                        break;
-                    } else {
-                        cleaned.push(c);
-                    }
-                }
-            }
-
+            let cleaned = strip_nested_comments(line, &mut in_block_comment, &mut comment_depth);
             let cleaned = clean_whitespace(&cleaned);
             if cleaned.is_empty() {
                 continue;
             }
 
-            // Handle being inside a multi-line signature
-            if in_signature {
+            if sig.in_signature {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth += balance;
-
-                if paren_depth <= 0 && has_brace {
-                    in_signature = false;
-                    paren_depth = 0;
-                }
+                sig.update(balance, has_brace);
                 continue;
             }
 
-            // Skip attributes
             if Self::is_attribute(&cleaned) {
                 continue;
             }
 
-            // Check for function signature start
             if Self::starts_signature(&cleaned) {
                 let (balance, has_brace) = Self::analyze_line(&cleaned);
-                paren_depth = balance;
-
-                if paren_depth <= 0 && has_brace {
-                    // Single-line signature
-                    paren_depth = 0;
-                } else {
-                    // Multi-line signature
-                    in_signature = true;
-                }
+                sig.start(balance, has_brace);
                 continue;
             }
 

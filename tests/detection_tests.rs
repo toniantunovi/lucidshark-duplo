@@ -1,42 +1,12 @@
 //! Duplicate detection accuracy integration tests
 
-use std::path::PathBuf;
+mod common;
+
 use std::process::Command;
-
-/// Get the path to the test fixtures directory
-fn fixtures_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-}
-
-/// Get the path to the built binary
-fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/lucidshark-duplo")
-}
-
-/// Create a temporary file list with the given files
-fn create_file_list(files: &[&str]) -> tempfile::NamedTempFile {
-    use std::io::Write;
-    let mut file = tempfile::NamedTempFile::new().expect("Failed to create temp file");
-    for f in files {
-        let path = fixtures_dir().join(f);
-        writeln!(file, "{}", path.display()).expect("Failed to write to temp file");
-    }
-    file
-}
-
-/// Build the binary before running tests
-fn ensure_binary_built() {
-    let status = Command::new("cargo")
-        .args(["build"])
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .status()
-        .expect("Failed to build binary");
-    assert!(status.success(), "Failed to build binary");
-}
 
 /// Run the binary with JSON output and parse the result
 fn run_with_json(file_list_path: &std::path::Path) -> serde_json::Value {
-    let output = Command::new(binary_path())
+    let output = Command::new(common::binary_path())
         .args(["--json"])
         .arg(file_list_path)
         .output()
@@ -51,8 +21,8 @@ mod detection_accuracy {
 
     #[test]
     fn test_detects_identical_files() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -70,8 +40,8 @@ mod detection_accuracy {
 
     #[test]
     fn test_detects_partial_duplicates() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["partial_a.c", "partial_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["partial_a.c", "partial_b.c"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -92,8 +62,8 @@ mod detection_accuracy {
 
     #[test]
     fn test_no_false_positives_on_unique_files() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["unique_a.c", "unique_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["unique_a.c", "unique_b.c"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -107,11 +77,11 @@ mod detection_accuracy {
 
     #[test]
     fn test_min_block_size_filtering() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
         // With min-lines=10, should not detect the 5-line duplicate
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--json", "-m", "10"])
             .arg(file_list.path())
             .output()
@@ -131,8 +101,9 @@ mod detection_accuracy {
 
     #[test]
     fn test_comment_stripping_detects_equivalent_code() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["with_comments.c", "without_comments.c"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["with_comments.c", "without_comments.c"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -151,8 +122,9 @@ mod summary_stats {
 
     #[test]
     fn test_summary_contains_correct_file_count() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c", "unique_a.c"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["identical_a.c", "identical_b.c", "unique_a.c"]);
         let json = run_with_json(file_list.path());
 
         let files_analyzed = json["summary"]["files_analyzed"].as_u64().unwrap();
@@ -164,8 +136,8 @@ mod summary_stats {
 
     #[test]
     fn test_summary_contains_duplicate_stats() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
         let json = run_with_json(file_list.path());
 
         assert!(json["summary"]["duplicate_blocks"].as_u64().unwrap() > 0);
@@ -179,8 +151,9 @@ mod language_specific {
 
     #[test]
     fn test_python_comment_stripping() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["python_with_comments.py", "python_no_comments.py"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["python_with_comments.py", "python_no_comments.py"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -194,8 +167,9 @@ mod language_specific {
 
     #[test]
     fn test_javascript_comment_stripping() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["js_with_comments.js", "js_no_comments.js"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["js_with_comments.js", "js_no_comments.js"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -209,8 +183,9 @@ mod language_specific {
 
     #[test]
     fn test_rust_comment_stripping() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["rust_with_comments.rs", "rust_no_comments.rs"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["rust_with_comments.rs", "rust_no_comments.rs"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -224,8 +199,9 @@ mod language_specific {
 
     #[test]
     fn test_html_comment_stripping() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["html_with_comments.html", "html_no_comments.html"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["html_with_comments.html", "html_no_comments.html"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
@@ -239,8 +215,9 @@ mod language_specific {
 
     #[test]
     fn test_css_comment_stripping() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["css_with_comments.css", "css_no_comments.css"]);
+        // binary is auto-built by cargo test
+        let file_list =
+            common::create_fixture_file_list(&["css_with_comments.css", "css_no_comments.css"]);
         let json = run_with_json(file_list.path());
 
         let duplicates = json["duplicates"]
