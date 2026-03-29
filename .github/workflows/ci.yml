@@ -34,10 +34,12 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo-
 
       - name: Install LucidShark
-        run: pip install lucidshark
+        run: |
+          curl -sL "https://github.com/toniantunovi/lucidshark/releases/latest/download/lucidshark-linux-amd64" -o lucidshark
+          chmod +x lucidshark
 
       - name: Run LucidShark scan
-        run: lucidshark scan --all --all-files --format ai
+        run: ./lucidshark scan --all --all-files --format ai
 
   build-windows:
     name: Build (Windows)
