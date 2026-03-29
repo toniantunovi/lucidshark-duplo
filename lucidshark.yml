@@ -38,7 +38,7 @@ fail_on:
   formatting: error
   security: high
   testing: any
-  duplication: any
+  duplication: error
 
 exclude:
   - "**/.git/**"
