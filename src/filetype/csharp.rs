@@ -1,7 +1,7 @@
 //! C# file type implementation
 
 use crate::core::SourceLine;
-use crate::filetype::{clean_whitespace, is_valid_line, FileType};
+use crate::filetype::{clean_whitespace, is_valid_line, strip_c_style_comments, FileType};
 
 /// C# file type processor
 pub struct CSharpFileType {
@@ -29,25 +29,7 @@ impl FileType for CSharpFileType {
         let mut in_block_comment = false;
 
         for (line_num, line) in lines.iter().enumerate() {
-            let mut cleaned = String::new();
-            let mut chars = line.chars().peekable();
-
-            while let Some(c) = chars.next() {
-                if in_block_comment {
-                    if c == '*' && chars.peek() == Some(&'/') {
-                        chars.next();
-                        in_block_comment = false;
-                    }
-                } else if c == '/' && chars.peek() == Some(&'*') {
-                    chars.next();
-                    in_block_comment = true;
-                } else if c == '/' && chars.peek() == Some(&'/') {
-                    break;
-                } else {
-                    cleaned.push(c);
-                }
-            }
-
+            let cleaned = strip_c_style_comments(line, &mut in_block_comment);
             let cleaned = clean_whitespace(&cleaned);
             if cleaned.is_empty() {
                 continue;

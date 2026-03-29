@@ -1,48 +1,18 @@
 //! Output format validation integration tests
 
-use std::path::PathBuf;
+mod common;
+
 use std::process::Command;
-
-/// Get the path to the test fixtures directory
-fn fixtures_dir() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
-}
-
-/// Get the path to the built binary
-fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("target/debug/lucidshark-duplo")
-}
-
-/// Create a temporary file list with the given files
-fn create_file_list(files: &[&str]) -> tempfile::NamedTempFile {
-    use std::io::Write;
-    let mut file = tempfile::NamedTempFile::new().expect("Failed to create temp file");
-    for f in files {
-        let path = fixtures_dir().join(f);
-        writeln!(file, "{}", path.display()).expect("Failed to write to temp file");
-    }
-    file
-}
-
-/// Build the binary before running tests
-fn ensure_binary_built() {
-    let status = Command::new("cargo")
-        .args(["build"])
-        .current_dir(env!("CARGO_MANIFEST_DIR"))
-        .status()
-        .expect("Failed to build binary");
-    assert!(status.success(), "Failed to build binary");
-}
 
 mod json_output {
     use super::*;
 
     #[test]
     fn test_json_is_valid() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--json"])
             .arg(file_list.path())
             .output()
@@ -62,10 +32,10 @@ mod json_output {
 
     #[test]
     fn test_json_duplicate_structure() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--json"])
             .arg(file_list.path())
             .output()
@@ -92,10 +62,10 @@ mod json_output {
 
     #[test]
     fn test_json_summary_structure() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--json"])
             .arg(file_list.path())
             .output()
@@ -118,10 +88,10 @@ mod xml_output {
 
     #[test]
     fn test_xml_has_correct_structure() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--xml"])
             .arg(file_list.path())
             .output()
@@ -149,10 +119,10 @@ mod xml_output {
 
     #[test]
     fn test_xml_contains_line_count() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--xml"])
             .arg(file_list.path())
             .output()
@@ -171,10 +141,10 @@ mod console_output {
 
     #[test]
     fn test_console_shows_file_paths() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .arg(file_list.path())
             .output()
             .expect("Failed to run binary");
@@ -192,10 +162,10 @@ mod console_output {
 
     #[test]
     fn test_console_shows_line_numbers() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .arg(file_list.path())
             .output()
             .expect("Failed to run binary");
@@ -211,10 +181,10 @@ mod console_output {
 
     #[test]
     fn test_console_shows_summary() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .arg(file_list.path())
             .output()
             .expect("Failed to run binary");
@@ -233,10 +203,10 @@ mod console_output {
 
     #[test]
     fn test_console_shows_configuration() {
-        ensure_binary_built();
-        let file_list = create_file_list(&["identical_a.c", "identical_b.c"]);
+        // binary is auto-built by cargo test
+        let file_list = common::create_fixture_file_list(&["identical_a.c", "identical_b.c"]);
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .arg(file_list.path())
             .output()
             .expect("Failed to run binary");

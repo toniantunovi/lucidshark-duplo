@@ -10,11 +10,17 @@ mod c;
 mod csharp;
 mod css;
 mod erlang;
+mod go;
 mod html;
 mod java;
 mod javascript;
+mod kotlin;
+mod php;
 mod python;
+mod ruby;
 mod rust_lang;
+mod scala;
+mod swift;
 mod unknown;
 mod vb;
 
@@ -24,11 +30,17 @@ pub use c::CFileType;
 pub use csharp::CSharpFileType;
 pub use css::CssFileType;
 pub use erlang::ErlangFileType;
+pub use go::GoFileType;
 pub use html::HtmlFileType;
 pub use java::JavaFileType;
 pub use javascript::JavaScriptFileType;
+pub use kotlin::KotlinFileType;
+pub use php::PhpFileType;
 pub use python::PythonFileType;
+pub use ruby::RubyFileType;
 pub use rust_lang::RustFileType;
+pub use scala::ScalaFileType;
+pub use swift::SwiftFileType;
 pub use unknown::UnknownFileType;
 pub use vb::VbFileType;
 
@@ -82,6 +94,20 @@ pub fn create_file_type(filename: &str, min_chars: u32) -> Box<dyn FileType> {
         "rs" => Box::new(RustFileType::new(min_chars)),
         // JavaScript/TypeScript
         "js" | "jsx" | "ts" | "tsx" | "mjs" | "cjs" => Box::new(JavaScriptFileType::new(min_chars)),
+        // Go
+        "go" => Box::new(GoFileType::new(min_chars)),
+        // Kotlin
+        "kt" | "kts" => Box::new(KotlinFileType::new(min_chars)),
+        // Ruby
+        "rb" | "rake" | "gemspec" => Box::new(RubyFileType::new(min_chars)),
+        // PHP
+        "php" | "phtml" | "php3" | "php4" | "php5" | "phps" => {
+            Box::new(PhpFileType::new(min_chars))
+        }
+        // Swift
+        "swift" => Box::new(SwiftFileType::new(min_chars)),
+        // Scala
+        "scala" | "sc" => Box::new(ScalaFileType::new(min_chars)),
         // HTML
         "html" | "htm" | "xhtml" => Box::new(HtmlFileType::new(min_chars)),
         // CSS
@@ -107,6 +133,139 @@ pub(crate) fn is_valid_line(line: &str, min_chars: u32) -> bool {
 /// Remove leading and trailing whitespace while preserving the line
 pub(crate) fn clean_whitespace(line: &str) -> String {
     line.trim().to_string()
+}
+
+/// Strip C-style block comments (/* */) and line comments (//).
+/// Updates `in_block_comment` state across lines. Returns cleaned content.
+pub(crate) fn strip_c_style_comments(line: &str, in_block_comment: &mut bool) -> String {
+    let mut cleaned = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if *in_block_comment {
+            if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                *in_block_comment = false;
+            }
+        } else if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            *in_block_comment = true;
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            break;
+        } else {
+            cleaned.push(c);
+        }
+    }
+
+    cleaned
+}
+
+/// Strip nested block comments (/* /* */ */) and line comments (//).
+/// Used by languages that support nested comments (Rust, Kotlin, Scala, Swift).
+pub(crate) fn strip_nested_comments(
+    line: &str,
+    in_block_comment: &mut bool,
+    comment_depth: &mut i32,
+) -> String {
+    let mut cleaned = String::new();
+    let mut chars = line.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        if *in_block_comment {
+            if c == '/' && chars.peek() == Some(&'*') {
+                chars.next();
+                *comment_depth += 1;
+            } else if c == '*' && chars.peek() == Some(&'/') {
+                chars.next();
+                *comment_depth -= 1;
+                if *comment_depth == 0 {
+                    *in_block_comment = false;
+                }
+            }
+        } else if c == '/' && chars.peek() == Some(&'*') {
+            chars.next();
+            *in_block_comment = true;
+            *comment_depth = 1;
+        } else if c == '/' && chars.peek() == Some(&'/') {
+            break;
+        } else {
+            cleaned.push(c);
+        }
+    }
+
+    cleaned
+}
+
+/// Analyze a line for parenthesis balance and opening brace.
+/// Correctly handles string ("...") and char ('...') literals.
+pub(crate) fn analyze_line_basic(line: &str) -> (i32, bool) {
+    let mut paren_balance = 0;
+    let mut has_open_brace = false;
+    let mut in_string = false;
+    let mut in_char = false;
+
+    let mut chars = line.chars().peekable();
+    while let Some(c) = chars.next() {
+        if in_string {
+            if c == '"' {
+                in_string = false;
+            } else if c == '\\' {
+                chars.next();
+            }
+        } else if in_char {
+            if c == '\'' {
+                in_char = false;
+            } else if c == '\\' {
+                chars.next();
+            }
+        } else {
+            match c {
+                '"' => in_string = true,
+                '\'' => in_char = true,
+                '(' => paren_balance += 1,
+                ')' => paren_balance -= 1,
+                '{' => has_open_brace = true,
+                '/' if chars.peek() == Some(&'/') => break,
+                _ => {}
+            }
+        }
+    }
+
+    (paren_balance, has_open_brace)
+}
+
+/// Tracks multi-line function/method signature state across lines.
+pub(crate) struct SignatureTracker {
+    pub in_signature: bool,
+    pub paren_depth: i32,
+}
+
+impl SignatureTracker {
+    pub fn new() -> Self {
+        Self {
+            in_signature: false,
+            paren_depth: 0,
+        }
+    }
+
+    /// Update state while inside a multi-line signature.
+    pub fn update(&mut self, balance: i32, has_terminator: bool) {
+        self.paren_depth += balance;
+        if self.paren_depth <= 0 && has_terminator {
+            self.in_signature = false;
+            self.paren_depth = 0;
+        }
+    }
+
+    /// Start tracking a new signature. The signature line is always consumed.
+    pub fn start(&mut self, balance: i32, has_terminator: bool) {
+        self.paren_depth = balance;
+        if self.paren_depth <= 0 && has_terminator {
+            self.paren_depth = 0;
+        } else {
+            self.in_signature = true;
+        }
+    }
 }
 
 #[cfg(test)]
@@ -138,6 +297,48 @@ mod tests {
     fn test_create_file_type_unknown() {
         let ft = create_file_type("test.xyz", 3);
         assert_eq!(ft.name(), "Unknown");
+    }
+
+    #[test]
+    fn test_create_file_type_go() {
+        let ft = create_file_type("main.go", 3);
+        assert_eq!(ft.name(), "Go");
+    }
+
+    #[test]
+    fn test_create_file_type_kotlin() {
+        let ft = create_file_type("Main.kt", 3);
+        assert_eq!(ft.name(), "Kotlin");
+        let ft2 = create_file_type("build.kts", 3);
+        assert_eq!(ft2.name(), "Kotlin");
+    }
+
+    #[test]
+    fn test_create_file_type_ruby() {
+        let ft = create_file_type("app.rb", 3);
+        assert_eq!(ft.name(), "Ruby");
+        let ft2 = create_file_type("Rakefile.rake", 3);
+        assert_eq!(ft2.name(), "Ruby");
+    }
+
+    #[test]
+    fn test_create_file_type_php() {
+        let ft = create_file_type("index.php", 3);
+        assert_eq!(ft.name(), "PHP");
+    }
+
+    #[test]
+    fn test_create_file_type_swift() {
+        let ft = create_file_type("ViewController.swift", 3);
+        assert_eq!(ft.name(), "Swift");
+    }
+
+    #[test]
+    fn test_create_file_type_scala() {
+        let ft = create_file_type("Main.scala", 3);
+        assert_eq!(ft.name(), "Scala");
+        let ft2 = create_file_type("script.sc", 3);
+        assert_eq!(ft2.name(), "Scala");
     }
 
     #[test]

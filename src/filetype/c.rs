@@ -1,7 +1,7 @@
 //! C/C++ file type implementation
 
 use crate::core::SourceLine;
-use crate::filetype::{clean_whitespace, is_valid_line, FileType};
+use crate::filetype::{clean_whitespace, is_valid_line, strip_c_style_comments, FileType};
 
 /// C/C++ file type processor
 pub struct CFileType {
@@ -29,33 +29,7 @@ impl FileType for CFileType {
         let mut in_block_comment = false;
 
         for (line_num, line) in lines.iter().enumerate() {
-            let mut cleaned = String::new();
-            let mut chars = line.chars().peekable();
-
-            while let Some(c) = chars.next() {
-                if in_block_comment {
-                    // Look for end of block comment
-                    if c == '*' && chars.peek() == Some(&'/') {
-                        chars.next(); // consume '/'
-                        in_block_comment = false;
-                    }
-                } else {
-                    // Check for start of block comment
-                    if c == '/' && chars.peek() == Some(&'*') {
-                        chars.next(); // consume '*'
-                        in_block_comment = true;
-                    }
-                    // Check for single-line comment
-                    else if c == '/' && chars.peek() == Some(&'/') {
-                        // Skip rest of line
-                        break;
-                    } else {
-                        cleaned.push(c);
-                    }
-                }
-            }
-
-            // Skip empty lines after comment removal
+            let cleaned = strip_c_style_comments(line, &mut in_block_comment);
             let cleaned = clean_whitespace(&cleaned);
             if cleaned.is_empty() {
                 continue;

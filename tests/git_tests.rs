@@ -2,14 +2,11 @@
 //!
 //! Tests for the --git, --changed-only, and --base-branch CLI options.
 
+mod common;
+
 use std::fs;
-use std::path::PathBuf;
 use std::process::Command;
 use tempfile::TempDir;
-
-fn binary_path() -> PathBuf {
-    PathBuf::from(env!("CARGO_BIN_EXE_lucidshark-duplo"))
-}
 
 /// Set up a git repository with initial configuration
 fn setup_git_repo() -> TempDir {
@@ -36,11 +33,6 @@ fn setup_git_repo() -> TempDir {
         .expect("Failed to configure git name");
 
     temp
-}
-
-/// Create a source file with given content
-fn create_source_file(dir: &std::path::Path, name: &str, content: &str) {
-    fs::write(dir.join(name), content).expect("Failed to write file");
 }
 
 /// Git add files
@@ -87,15 +79,15 @@ int duplicate_function() {
     return x + y + z;
 }
 "#;
-        create_source_file(temp.path(), "a.c", code);
-        create_source_file(temp.path(), "b.c", code);
+        common::create_source_file(temp.path(), "a.c", code);
+        common::create_source_file(temp.path(), "b.c", code);
 
         // Add and commit
         git_add(temp.path(), &["a.c", "b.c"]);
         git_commit(temp.path(), "initial commit");
 
         // Run duplo with --git
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .current_dir(temp.path())
             .output()
@@ -137,15 +129,15 @@ int tracked() {
     return 42;
 }
 "#;
-        create_source_file(temp.path(), "tracked.c", code);
+        common::create_source_file(temp.path(), "tracked.c", code);
         git_add(temp.path(), &["tracked.c"]);
         git_commit(temp.path(), "initial commit");
 
         // Create untracked file with same content (would be duplicate if analyzed)
-        create_source_file(temp.path(), "untracked.c", code);
+        common::create_source_file(temp.path(), "untracked.c", code);
 
         // Run duplo with --git
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .current_dir(temp.path())
             .output()
@@ -167,10 +159,10 @@ int tracked() {
         let temp = setup_git_repo();
 
         // Create various files
-        create_source_file(temp.path(), "code.c", "int main() { return 0; }");
-        create_source_file(temp.path(), "README.md", "# Project");
-        create_source_file(temp.path(), "config.toml", "[package]\nname = \"test\"");
-        create_source_file(temp.path(), "data.json", "{}");
+        common::create_source_file(temp.path(), "code.c", "int main() { return 0; }");
+        common::create_source_file(temp.path(), "README.md", "# Project");
+        common::create_source_file(temp.path(), "config.toml", "[package]\nname = \"test\"");
+        common::create_source_file(temp.path(), "data.json", "{}");
 
         git_add(
             temp.path(),
@@ -179,7 +171,7 @@ int tracked() {
         git_commit(temp.path(), "initial commit");
 
         // Run duplo with --git
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .current_dir(temp.path())
             .output()
@@ -200,7 +192,7 @@ int tracked() {
     fn test_git_flag_fails_outside_repo() {
         let temp = TempDir::new().unwrap(); // Not a git repo
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git"])
             .current_dir(temp.path())
             .output()
@@ -225,7 +217,7 @@ mod changed_only {
 
     #[test]
     fn test_changed_only_requires_git_flag() {
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--changed-only", "files.txt"])
             .output()
             .expect("Failed to run binary");
@@ -250,7 +242,7 @@ int original() {
     return a + b + c;
 }
 "#;
-        create_source_file(temp.path(), "original.c", original_code);
+        common::create_source_file(temp.path(), "original.c", original_code);
         git_add(temp.path(), &["original.c"]);
         git_commit(temp.path(), "initial commit");
 
@@ -258,12 +250,12 @@ int original() {
         git_branch(temp.path(), "feature");
 
         // Add a new file with duplicate code on feature branch
-        create_source_file(temp.path(), "new_file.c", original_code);
+        common::create_source_file(temp.path(), "new_file.c", original_code);
         git_add(temp.path(), &["new_file.c"]);
         git_commit(temp.path(), "add duplicate");
 
         // Run with --changed-only
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--changed-only", "--base-branch", "main", "--json"])
             .current_dir(temp.path())
             .output()
@@ -292,7 +284,7 @@ int original() {
         let temp = setup_git_repo();
 
         // Create file on main
-        create_source_file(temp.path(), "file.c", "int main() { return 0; }");
+        common::create_source_file(temp.path(), "file.c", "int main() { return 0; }");
         git_add(temp.path(), &["file.c"]);
         git_commit(temp.path(), "initial commit");
 
@@ -300,7 +292,7 @@ int original() {
         git_branch(temp.path(), "feature");
 
         // Run with --changed-only (no changes)
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--changed-only", "--base-branch", "main", "--json"])
             .current_dir(temp.path())
             .output()
@@ -320,7 +312,7 @@ int original() {
         let temp = setup_git_repo();
 
         // Create a file on main branch
-        create_source_file(temp.path(), "file.c", "int main() { return 0; }");
+        common::create_source_file(temp.path(), "file.c", "int main() { return 0; }");
         git_add(temp.path(), &["file.c"]);
         git_commit(temp.path(), "initial commit");
 
@@ -328,12 +320,12 @@ int original() {
         git_branch(temp.path(), "feature");
 
         // Add a new file
-        create_source_file(temp.path(), "new.c", "int new() { return 1; }");
+        common::create_source_file(temp.path(), "new.c", "int new() { return 1; }");
         git_add(temp.path(), &["new.c"]);
         git_commit(temp.path(), "add new file");
 
         // Run without specifying base branch (should auto-detect 'main')
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--changed-only", "--json"])
             .current_dir(temp.path())
             .output()
@@ -351,12 +343,12 @@ int original() {
     fn test_invalid_base_branch_error() {
         let temp = setup_git_repo();
 
-        create_source_file(temp.path(), "file.c", "int main() { return 0; }");
+        common::create_source_file(temp.path(), "file.c", "int main() { return 0; }");
         git_add(temp.path(), &["file.c"]);
         git_commit(temp.path(), "initial commit");
 
         // Run with non-existent base branch
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args([
                 "--git",
                 "--changed-only",
@@ -391,12 +383,12 @@ mod git_with_file_list {
 
         // Create tracked file
         let code = "int tracked() { return 1; }";
-        create_source_file(temp.path(), "tracked.c", code);
+        common::create_source_file(temp.path(), "tracked.c", code);
         git_add(temp.path(), &["tracked.c"]);
         git_commit(temp.path(), "initial commit");
 
         // Create untracked file
-        create_source_file(temp.path(), "untracked.c", code);
+        common::create_source_file(temp.path(), "untracked.c", code);
 
         // Create file list pointing to untracked file
         let file_list_path = temp.path().join("files.txt");
@@ -404,7 +396,7 @@ mod git_with_file_list {
         writeln!(file_list, "{}", temp.path().join("untracked.c").display()).unwrap();
 
         // Run with both --git and file list (--git should win)
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .arg(&file_list_path)
             .current_dir(temp.path())
@@ -431,7 +423,7 @@ mod edge_cases {
         let temp = setup_git_repo();
 
         // Empty repo, no files
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .current_dir(temp.path())
             .output()
@@ -459,12 +451,12 @@ mod edge_cases {
         let temp = setup_git_repo();
 
         // Create only unsupported files
-        create_source_file(temp.path(), "README.md", "# Test");
-        create_source_file(temp.path(), "Makefile", "all: build");
+        common::create_source_file(temp.path(), "README.md", "# Test");
+        common::create_source_file(temp.path(), "Makefile", "all: build");
         git_add(temp.path(), &["README.md", "Makefile"]);
         git_commit(temp.path(), "add files");
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .current_dir(temp.path())
             .output()
@@ -500,13 +492,13 @@ int deep_function() {
     return x + y;
 }
 "#;
-        create_source_file(temp.path(), "src/main.c", code);
-        create_source_file(temp.path(), "src/module/helper.c", code);
+        common::create_source_file(temp.path(), "src/main.c", code);
+        common::create_source_file(temp.path(), "src/module/helper.c", code);
 
         git_add(temp.path(), &["src/main.c", "src/module/helper.c"]);
         git_commit(temp.path(), "add nested files");
 
-        let output = Command::new(binary_path())
+        let output = Command::new(common::binary_path())
             .args(["--git", "--json"])
             .current_dir(temp.path())
             .output()
